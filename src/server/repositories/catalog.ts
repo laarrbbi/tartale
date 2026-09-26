@@ -1,13 +1,14 @@
 import 'server-only';
 
-import type { CakeSize, SizePrices } from '@/lib/orders';
+import type { SizeNotes } from '@/lib/catalog-types';
+import type { SizePrices } from '@/lib/orders';
 import { getDb, isoRequired, one } from '@/server/db/pg';
 
 // ---------------------------------------------------------------------------
 // Bakeries
 // ---------------------------------------------------------------------------
 
-export type SizeNotes = Partial<Record<CakeSize, string>>;
+export type { SizeNotes };
 
 export interface Bakery {
   id: number;

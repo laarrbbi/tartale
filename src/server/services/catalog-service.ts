@@ -1,42 +1,10 @@
 import 'server-only';
 
-import { fromPrice, type SizePrices } from '@/lib/orders';
-import { listBakeries, listCakes, listZones, type SizeNotes } from '@/server/repositories/catalog';
+import type { PublicCity, PublicMenu } from '@/lib/catalog-types';
+import { fromPrice } from '@/lib/orders';
+import { listBakeries, listCakes, listZones } from '@/server/repositories/catalog';
 
-/**
- * What the public pages may know about the catalog: cities, postcodes,
- * delivery prices, and each bakery's menu. Plain, serialisable objects — they
- * are handed to client components as props.
- */
-export interface PublicZone {
-  id: number;
-  name: string;
-  city: string;
-  postalCodes: string[];
-  deliveryCents: number;
-}
-
-export interface PublicCake {
-  id: number;
-  name: string;
-  description: string | null;
-  photo: string | null;
-  prices: SizePrices;
-}
-
-export interface PublicMenu {
-  city: string;
-  bakery: { id: number; name: string; printsPhotos: boolean; sizeNotes: SizeNotes };
-  zones: PublicZone[];
-  cakes: PublicCake[];
-}
-
-export interface PublicCity {
-  city: string;
-  postalCodes: string[];
-  /** The delivery prices in this city, lowest first (one value when there is one zone). */
-  deliveryCents: number[];
-}
+export type { PublicCake, PublicCity, PublicMenu, PublicZone } from '@/lib/catalog-types';
 
 /**
  * One menu per city: the bakery that delivers there and its cakes. Today a

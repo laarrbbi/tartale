@@ -47,7 +47,7 @@ test('dates: minimum notice, the far limit and closed weekdays', () => {
   assert.equal(checkDeliveryDay('2026-13-01', RULES, now), 'invalid');
   // Sundays closed: a Saturday order with one day's notice lands on Monday.
   const closedSunday = { ...RULES, closedWeekdays: [0] };
-  assert.equal(checkDeliveryDay('2026-10-04', closedSunday, now), 'closed');
+  assert.equal(checkDeliveryDay('2026-10-04', closedSunday, now), 'closed_day');
   assert.equal(earliestDelivery(closedSunday, new Date('2026-10-03T10:00:00Z')), '2026-10-05');
   // Late at night in Madrid, "tomorrow" is counted from Madrid's date.
   assert.equal(earliestDelivery(RULES, new Date('2026-09-28T22:30:00Z')), '2026-09-30');

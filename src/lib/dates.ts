@@ -37,13 +37,13 @@ export function weekday(day: string): number {
 }
 
 export const WEEKDAYS = [
-  { id: 1, short: 'L', label: 'lunes' },
-  { id: 2, short: 'M', label: 'martes' },
-  { id: 3, short: 'X', label: 'miércoles' },
-  { id: 4, short: 'J', label: 'jueves' },
-  { id: 5, short: 'V', label: 'viernes' },
-  { id: 6, short: 'S', label: 'sábado' },
-  { id: 0, short: 'D', label: 'domingo' },
+  { id: 1, short: 'L', label: 'lunes', plural: 'lunes' },
+  { id: 2, short: 'M', label: 'martes', plural: 'martes' },
+  { id: 3, short: 'X', label: 'miércoles', plural: 'miércoles' },
+  { id: 4, short: 'J', label: 'jueves', plural: 'jueves' },
+  { id: 5, short: 'V', label: 'viernes', plural: 'viernes' },
+  { id: 6, short: 'S', label: 'sábado', plural: 'sábados' },
+  { id: 0, short: 'D', label: 'domingo', plural: 'domingos' },
 ] as const;
 
 /** "martes, 14 de octubre" */
@@ -81,7 +81,7 @@ export function earliestDelivery(rules: DeliveryRules, now: Date = new Date()): 
   return day;
 }
 
-export type DayProblem = 'invalid' | 'too_soon' | 'too_far' | 'closed';
+export type DayProblem = 'invalid' | 'too_soon' | 'too_far' | 'closed_day';
 
 /** Why a delivery day cannot be taken, or null if it can. */
 export function checkDeliveryDay(day: string, rules: DeliveryRules, now: Date = new Date()): DayProblem | null {
@@ -89,7 +89,7 @@ export function checkDeliveryDay(day: string, rules: DeliveryRules, now: Date = 
   const today = madridToday(now);
   if (daysBetween(today, day) < rules.minNoticeDays) return 'too_soon';
   if (daysBetween(today, day) > rules.maxDaysAhead) return 'too_far';
-  if (rules.closedWeekdays.includes(weekday(day))) return 'closed';
+  if (rules.closedWeekdays.includes(weekday(day))) return 'closed_day';
   return null;
 }
 
