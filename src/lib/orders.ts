@@ -117,6 +117,12 @@ export function formatEuros(cents: number): string {
   return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(cents / 100);
 }
 
+/** Cents as the panel's inputs show them, the way they are typed in Spain: 2900 → "29", 4250 → "42,50". */
+export function eurosInput(cents: number | null): string {
+  if (cents === null) return '';
+  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2).replace('.', ',');
+}
+
 /** Cake prices by size; null where the bakery does not make that size. */
 export type SizePrices = Record<CakeSize, number | null>;
 

@@ -27,3 +27,21 @@ export function formatStamp(iso: string): string {
 export function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
+
+/** "Levadura Madre, Gran Vía" → "levadura-madre-gran-via": for slugs that must match ^[a-z0-9]+(-[a-z0-9]+)*$. */
+export function slugify(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+    .replace(/-+$/g, '');
+}
+
+/** Who did it, for the activity lists: payments are logged as "stripe", jobs with no one as null. */
+export function actorLabel(actorEmail: string | null): string {
+  if (actorEmail === 'stripe') return 'Stripe';
+  return actorEmail ?? 'sistema';
+}

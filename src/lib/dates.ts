@@ -107,3 +107,13 @@ export function nextBirthday(day: number, month: number, from: string): string {
   }
   return from;
 }
+
+/** "Hoy", "Mañana", "Ayer", or "martes, 14 de octubre" — for lists grouped by day. */
+export function relativeDayLabel(day: string, today: string): string {
+  const diff = daysBetween(today, day);
+  if (diff === 0) return 'Hoy';
+  if (diff === 1) return 'Mañana';
+  if (diff === -1) return 'Ayer';
+  const label = longDate(day);
+  return diff < 0 ? `${label} (pasado)` : label;
+}

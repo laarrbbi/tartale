@@ -307,6 +307,16 @@ export type OrderFilter = keyof typeof ORDER_FILTERS;
  */
 const IS_REAL = `(payment_method <> 'stripe' or payment_status not in ('pendiente', 'caducado'))`;
 
+/** Orders still to deliver, per bakery: what each one has on its plate. */
+export async function countActiveOrdersByBakery(): Promise<Map<number, number>> {
+  const { rows } = await getDb().query<{ bakery_id: number; c: number }>(
+    `select bakery_id, count(*)::int as c from orders
+      where erased_at is null and ${IS_REAL} and status not in ('entregado', 'cancelado')
+      group by bakery_id`,
+  );
+  return new Map(rows.map((r) => [r.bakery_id, r.c]));
+}
+
 export async function listOrders(options: { filter?: OrderFilter; today: string; bakeryId?: number; limit?: number }): Promise<Order[]> {
   const { filter = 'activos', today, bakeryId = null, limit = 300 } = options;
   const where: Record<OrderFilter, string> = {

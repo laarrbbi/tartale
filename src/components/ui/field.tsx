@@ -58,8 +58,21 @@ export function Select({ className, children, ...props }: SelectHTMLAttributes<H
 }
 
 /** A checkbox drawn as a switch; the real input stays for keyboard, forms and screen readers. */
-export function Toggle({ name, label, description, defaultChecked }: { name: string; label: string; description?: string; defaultChecked?: boolean }) {
-  const id = `toggle-${name}`;
+export function Toggle({
+  name,
+  label,
+  description,
+  defaultChecked,
+  id: givenId,
+}: {
+  name: string;
+  label: string;
+  description?: string;
+  defaultChecked?: boolean;
+  /** Needed when one page has several forms with a toggle of the same name. */
+  id?: string;
+}) {
+  const id = givenId ?? `toggle-${name}`;
   return (
     <div className="flex items-start justify-between gap-4 py-2">
       <div className="min-w-0">

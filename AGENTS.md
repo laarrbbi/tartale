@@ -15,8 +15,12 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   sizes or delivery promises that the owner has not given. Prices come from the
   database (the bakeries' menus), never from the browser.
 - Money is integer cents. Dates are `YYYY-MM-DD` strings in Europe/Madrid.
-- SQL lives in `src/server/repositories/` only. Every untrusted input goes
-  through a zod schema in `src/server/validation/` first.
+- Queries live in `src/server/repositories/` (the session, rate-limit and
+  schema-update plumbing keep their own). Every untrusted input goes through a
+  zod schema in `src/server/validation/` first.
+- Panel mutations are server actions that start with `beginMutation()` (CSRF,
+  role, rate limit); forms go through `AdminForm`. `tests/security.test.ts`
+  reads the source and fails if one does not.
 - Schema changes: add an idempotent entry to `src/server/services/schema-updates.ts`,
   the same SQL as a file in `supabase/migrations/`, and fold it into
   `supabase/schema.sql`. `tests/schema.test.ts` fails if the three disagree.

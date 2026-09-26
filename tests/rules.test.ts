@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 
 import { birthdayDeliveryDay, fillName, parseBirthdayList } from '../src/lib/birthdays';
@@ -13,8 +15,12 @@ import {
   weekday,
   type DeliveryRules,
 } from '../src/lib/dates';
-import { formatEuros, fromPrice, nextStatus, priceFor, signOffFor } from '../src/lib/orders';
+import { CAKE_PHOTOS } from '../src/lib/cake-photos';
+import { slugify } from '../src/lib/format';
+import { eurosInput, formatEuros, fromPrice, nextStatus, priceFor, signOffFor } from '../src/lib/orders';
 import { formatPostcodes, overlaps, parsePostcodes, zoneFor } from '../src/lib/zones';
+import { cakeSchema, settingsSchema, zoneSchema } from '../src/server/validation/panel';
+import { eurosSchema } from '../src/server/validation/schemas';
 
 const RULES: DeliveryRules = { minNoticeDays: 1, maxDaysAhead: 365, closedWeekdays: [] };
 
@@ -127,4 +133,55 @@ test('pricing: cents, sizes a bakery does not make, and the card signature', () 
   assert.equal(nextStatus('cancelado'), null);
   assert.equal(signOffFor({ anonymous: true, signOff: 'Pablo', senderName: 'Pablo' }), null);
   assert.equal(signOffFor({ anonymous: false, signOff: null, senderName: 'Pablo' }), 'Pablo');
+});
+
+test('panel: money typed the Spanish way, and shown back the same way', () => {
+  const euros = eurosSchema(200);
+  assert.equal(euros.parse('10'), 1000);
+  assert.equal(euros.parse('12,50'), 1250);
+  assert.equal(euros.parse(' 7,5 € '), 750);
+  assert.equal(euros.parse(''), null);
+  assert.equal(euros.safeParse('-3').success, false);
+  assert.equal(euros.safeParse('201').success, false);
+  assert.equal(euros.safeParse('1,234').success, false);
+  assert.equal(eurosInput(2900), '29');
+  assert.equal(eurosInput(4250), '42,50');
+  assert.equal(eurosInput(3335), '33,35');
+  assert.equal(eurosInput(null), '');
+});
+
+test('panel: a zone needs real postcodes and a delivery price; a cake at least one price', () => {
+  const zone = { bakeryId: '1', name: 'Centro', city: 'Alicante', postalCodes: '03001–03003, 03540', deliveryEuros: '10', active: 'true' };
+  const ok = zoneSchema.parse(zone);
+  assert.deepEqual(ok.postalCodes, ['03001', '03002', '03003', '03540']);
+  assert.equal(ok.deliveryEuros, 1000);
+  assert.equal(zoneSchema.safeParse({ ...zone, postalCodes: '03001, 3540' }).success, false);
+  assert.equal(zoneSchema.safeParse({ ...zone, postalCodes: '  ' }).success, false);
+  assert.equal(zoneSchema.safeParse({ ...zone, deliveryEuros: '' }).success, false);
+
+  const cake = { bakeryId: '1', name: 'Chocolate', description: '', photo: '/cakes/chocolate.jpg', pricePequena: '29', priceMediana: '', priceGrande: '', sortOrder: '10', active: 'true' };
+  const parsed = cakeSchema.parse(cake);
+  assert.deepEqual([parsed.pricePequena, parsed.priceMediana, parsed.priceGrande], [2900, null, null]);
+  assert.equal(cakeSchema.safeParse({ ...cake, pricePequena: '' }).success, false, 'no price at all');
+  assert.equal(cakeSchema.safeParse({ ...cake, photo: '/uploads/x.jpg' }).success, false, 'only the photos that ship with the site');
+  assert.equal(cakeSchema.parse({ ...cake, photo: '' }).photo, null);
+});
+
+test('panel: settings keep at least one delivery day and a sane window', () => {
+  const base = { ordersEnabled: 'true', minNoticeDays: '1', maxDaysAhead: '365', closedWeekdays: ['0', '0'], whatsappNumber: '' };
+  const ok = settingsSchema.parse(base);
+  assert.deepEqual(ok.closedWeekdays, [0]);
+  assert.equal(ok.whatsappNumber, null);
+  assert.equal(settingsSchema.safeParse({ ...base, closedWeekdays: ['0', '1', '2', '3', '4', '5', '6'] }).success, false);
+  assert.equal(settingsSchema.safeParse({ ...base, minNoticeDays: '10', maxDaysAhead: '10' }).success, false);
+  assert.equal(settingsSchema.safeParse({ ...base, whatsappNumber: '12' }).success, false);
+  assert.equal(settingsSchema.parse({ ...base, whatsappNumber: '+34 663 82 32 96' }).whatsappNumber, '+34 663 82 32 96');
+});
+
+test('catalog: every cake photo offered in the panel ships with the site, and slugs are clean', () => {
+  const files = fs.readdirSync(path.join(process.cwd(), 'public', 'cakes')).sort();
+  assert.deepEqual(CAKE_PHOTOS.map((p) => p.path.replace('/cakes/', '')).sort(), files);
+  assert.equal(slugify('Levadura Madre · Gran Vía'), 'levadura-madre-gran-via');
+  assert.equal(slugify('  Pâtisserie Ñandú!! '), 'patisserie-nandu');
+  assert.equal(slugify('***'), '');
 });

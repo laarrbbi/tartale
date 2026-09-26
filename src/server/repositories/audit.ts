@@ -32,7 +32,11 @@ export async function recordAudit(input: {
   );
 }
 
-export async function listAudit(options: { limit?: number; target?: string } = {}): Promise<AuditEntry[]> {
+/**
+ * The newest entries first. `target` narrows to one thing ("order:12");
+ * `kinds` to actions by their first word ("order", "login"…).
+ */
+export async function listAudit(options: { limit?: number; target?: string; kinds?: readonly string[] } = {}): Promise<AuditEntry[]> {
   const limit = Math.min(Math.max(options.limit ?? 150, 1), 500);
   const { rows } = await getDb().query<{
     id: number;
@@ -45,9 +49,10 @@ export async function listAudit(options: { limit?: number; target?: string } = {
     `select id, actor_email, action, target, detail, created_at
        from audit_log
       where ($2::text is null or target = $2)
+        and ($3::text[] is null or split_part(action, '.', 1) = any($3::text[]))
       order by created_at desc, id desc
       limit $1`,
-    [limit, options.target ?? null],
+    [limit, options.target ?? null, options.kinds ? [...options.kinds] : null],
   );
   return rows.map((r) => ({
     id: r.id,
