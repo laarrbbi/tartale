@@ -19,6 +19,7 @@ const STAFF_NAV: NavItem[] = [
  * every one of these pages and actions checks the role on the server.
  */
 const OWNER_NAV: NavItem[] = [
+  { href: '/admin/cumpleanos', label: 'Cumpleaños' },
   { href: '/admin/ajustes', label: 'Ajustes' },
   { href: '/admin/equipo', label: 'Equipo' },
   { href: '/admin/actividad', label: 'Actividad' },

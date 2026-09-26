@@ -48,8 +48,9 @@ export default function PrivacyPage() {
       <h2>Cumpleaños de empresas</h2>
       <p>
         Cuando una empresa nos pide las tartas de cumpleaños de su equipo, nos da el nombre de cada persona, el día y el mes
-        de su cumpleaños (sin el año) y la dirección de la oficina. Los tratamos por encargo de esa empresa y solo para
-        preparar y entregar esas tartas, mientras el servicio siga activo.
+        de su cumpleaños (sin el año) y la dirección donde entregarla, normalmente la de la oficina. Los tratamos por encargo
+        de esa empresa (art. 28 RGPD) y solo para preparar y entregar esas tartas. Borramos a cada persona de la lista cuando
+        la empresa nos lo pide o deja el servicio; los pedidos ya hechos siguen la regla de los {RETENTION_DAYS.orders} días.
       </p>
 
       <h2>Cuánto tiempo</h2>

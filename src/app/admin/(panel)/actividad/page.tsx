@@ -17,6 +17,17 @@ const ACTIONS: Record<string, string> = {
   'order.refund_synced': 'Devolución (desde Stripe)',
   'order.payment': 'Cobro por transferencia',
   'order.erase': 'Datos personales borrados',
+  'order.birthday': 'Pedido de cumpleaños creado',
+  'retention.run': 'Borrado automático (90 días)',
+  'company.create': 'Empresa nueva',
+  'company.update': 'Empresa cambiada',
+  'company.delete': 'Empresa borrada',
+  'birthday.import': 'Lista de cumpleaños',
+  'birthday.update': 'Cumpleaños cambiado',
+  'birthday.pause': 'Cumpleaños en pausa',
+  'birthday.resume': 'Cumpleaños reactivado',
+  'birthday.delete': 'Persona quitada de la lista',
+  'birthday.problem': 'Cumpleaños sin pedir',
   'bakery.create': 'Pastelería nueva',
   'bakery.update': 'Pastelería cambiada',
   'zone.create': 'Zona nueva',
@@ -45,19 +56,21 @@ const FILTERS = {
   todo: { label: 'Todo', kinds: null },
   pedidos: { label: 'Pedidos', kinds: ['order'] },
   catalogo: { label: 'Pastelerías y carta', kinds: ['bakery', 'zone', 'cake'] },
-  ajustes: { label: 'Ajustes', kinds: ['settings', 'schema', 'setup'] },
+  cumpleanos: { label: 'Cumpleaños', kinds: ['company', 'birthday'] },
+  ajustes: { label: 'Ajustes', kinds: ['settings', 'schema', 'setup', 'retention'] },
   accesos: { label: 'Accesos', kinds: ['login', 'logout', 'password', 'totp', 'account'] },
 } as const;
 type Filter = keyof typeof FILTERS;
 
-const FAILED = new Set(['login.failed', 'login.failed_code', 'login.blocked_locked']);
+const FAILED = new Set(['login.failed', 'login.failed_code', 'login.blocked_locked', 'birthday.problem']);
 
 function targetLink(target: string | null): { href: string; label: string } | null {
-  const match = target ? /^(order|bakery|account):(\d+)$/.exec(target) : null;
+  const match = target ? /^(order|bakery|account|company):(\d+)$/.exec(target) : null;
   if (!match) return null;
   const [, kind, id] = match;
   if (kind === 'order') return { href: `/admin/pedidos/${id}`, label: `pedido nº ${id}` };
   if (kind === 'bakery') return { href: `/admin/pastelerias/${id}`, label: 'pastelería' };
+  if (kind === 'company') return { href: `/admin/cumpleanos/${id}`, label: 'empresa' };
   return { href: '/admin/equipo', label: 'cuenta' };
 }
 

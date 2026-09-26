@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 
+import { submitKeepingValues } from '@/components/admin/form';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody } from '@/components/ui/card';
 import { Field, Input } from '@/components/ui/field';
@@ -27,7 +28,7 @@ export function LoginForm() {
     <Card>
       <CardBody>
         {state.needsCode ? (
-          <form action={formAction} className="flex flex-col gap-4">
+          <form action={formAction} onSubmit={submitKeepingValues(formAction)} className="flex flex-col gap-4">
             <p className="type-body text-ink-muted">{failed ? 'Escribe el código de 6 cifras de tu aplicación.' : state.message}</p>
             <Field label="Código de 6 cifras" htmlFor="code">
               <Input id="code" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} required autoFocus />
@@ -43,7 +44,7 @@ export function LoginForm() {
             </a>
           </form>
         ) : (
-          <form action={formAction} className="flex flex-col gap-4">
+          <form action={formAction} onSubmit={submitKeepingValues(formAction)} className="flex flex-col gap-4">
             <Field label="Email" htmlFor="email">
               <Input id="email" name="email" type="email" autoComplete="username" required maxLength={200} autoFocus />
             </Field>

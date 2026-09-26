@@ -1,0 +1,28 @@
+name: Uptime
+
+# Every 15 minutes: the home page, the order form and the health check
+# (which also reaches the database). A failed run shows up in Actions and, with
+# notifications on, in your email.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: tartale.vercel.app answers
+        run: |
+          set -euo pipefail
+          base="https://tartale.vercel.app"
+          for path in / /enviar; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 --retry 2 --retry-delay 15 "$base$path")"
+            if [ "$code" != 200 ]; then echo "::error::$base$path answered $code"; exit 1; fi
+          done
+          body="$(curl -sS --max-time 20 --retry 2 --retry-delay 15 "$base/api/health")"
+          if ! grep -q '"status":"ok"' <<<"$body"; then echo "::error::health check: $body"; exit 1; fi
+          echo "All good: $body"

@@ -208,7 +208,7 @@ test('every panel page asks for a session; the owner’s pages for the owner', (
   for (const page of pages) {
     assert.match(read(page), /await require(Session|Owner)\(/, page);
   }
-  for (const section of ['ajustes', 'equipo', 'actividad']) {
+  for (const section of ['ajustes', 'equipo', 'actividad', 'cumpleanos', 'cumpleanos/[id]']) {
     const page = path.join('src/app/admin/(panel)', section, 'page.tsx');
     assert.match(read(page), /await requireOwner\(\)/, page);
   }

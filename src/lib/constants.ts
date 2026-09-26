@@ -48,6 +48,8 @@ export const RETENTION_DAYS = {
   unpaidOrders: 2,
   /** The panel's activity log. */
   audit: 730,
+  /** Stripe event ids, kept to ignore repeats (Stripe retries for three days). */
+  stripeEvents: 30,
 } as const;
 
 /**

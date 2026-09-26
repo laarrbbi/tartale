@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import { birthdayDeliveryDay, fillName, parseBirthdayList } from '../src/lib/birthdays';
+import { birthdayDeliveryDay, fillName, parseBirthdayList, parseDayMonth, planBirthday } from '../src/lib/birthdays';
 import {
   addDays,
   checkDeliveryDay,
@@ -184,4 +184,22 @@ test('catalog: every cake photo offered in the panel ships with the site, and sl
   assert.equal(slugify('Levadura Madre · Gran Vía'), 'levadura-madre-gran-via');
   assert.equal(slugify('  Pâtisserie Ñandú!! '), 'patisserie-nandu');
   assert.equal(slugify('***'), '');
+});
+
+test('birthdays: the plan — next birthday that can still go out, created a week before', () => {
+  // 2026-10-02 is a Friday.
+  const home = planBirthday({ day: 10, month: 10, addressKind: 'casa' }, [], '2026-10-02');
+  assert.deepEqual(home, { birthday: '2026-10-10', year: 2026, deliverOn: '2026-10-10', createOn: '2026-10-03' });
+  // Saturday the 10th at the office: Friday the 9th, created on the 2nd.
+  const office = planBirthday({ day: 10, month: 10, addressKind: 'oficina' }, [], '2026-10-02');
+  assert.deepEqual(office, { birthday: '2026-10-10', year: 2026, deliverOn: '2026-10-09', createOn: '2026-10-02' });
+  // On the day itself, or when the Friday has gone, it is next year's.
+  assert.equal(planBirthday({ day: 2, month: 10, addressKind: 'casa' }, [], '2026-10-02').year, 2027);
+  assert.equal(planBirthday({ day: 10, month: 10, addressKind: 'oficina' }, [], '2026-10-09').birthday, '2027-10-10');
+  // New Year's Day on a Friday at home: the year is the birthday's, not the delivery's.
+  assert.equal(planBirthday({ day: 1, month: 1, addressKind: 'casa' }, [], '2026-12-30').year, 2027);
+  assert.deepEqual(parseDayMonth('14/03'), { day: 14, month: 3 });
+  assert.deepEqual(parseDayMonth('29-2-1992'), { day: 29, month: 2 });
+  assert.equal(parseDayMonth('31/04'), null);
+  assert.equal(parseDayMonth('marzo'), null);
 });

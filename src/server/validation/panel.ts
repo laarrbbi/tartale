@@ -1,12 +1,24 @@
 import { z } from 'zod';
 
+import { parseBirthdayList, parseDayMonth } from '@/lib/birthdays';
 import { CAKE_PHOTO_PATHS } from '@/lib/cake-photos';
-import { ORDER_LIMITS, SIZE_IDS, type CakeSize } from '@/lib/orders';
+import { ORDER_LIMITS, SIZE_IDS, SLOT_IDS, type AddressKind, type CakeSize } from '@/lib/orders';
 import { normalizeWhatsappNumber } from '@/lib/whatsapp';
-import { parsePostcodes } from '@/lib/zones';
+import { isPostcode, parsePostcodes } from '@/lib/zones';
 import type { Role } from '@/types/domain';
 
-import { checkbox, cleanText, emailSchema, enumOf, eurosSchema, idSchema, optionalMultiline, optionalText, phoneSchema } from './schemas';
+import {
+  checkbox,
+  cleanText,
+  emailSchema,
+  enumOf,
+  eurosSchema,
+  idSchema,
+  optionalMultiline,
+  optionalText,
+  phoneSchema,
+  postcodeSchema,
+} from './schemas';
 
 /**
  * What the owner types in the panel. Trusted people, but still untrusted
@@ -147,4 +159,92 @@ export const newAccountSchema = z.object({
   displayName: requiredText(80, 'Su nombre'),
   email: emailSchema.pipe(z.string().min(1, 'Su email')),
   role: enumOf<Role>(['owner', 'staff'], 'Elige el papel'),
+});
+
+// ---------------------------------------------------------------------------
+// Company birthdays
+// ---------------------------------------------------------------------------
+
+export const companySchema = z.object({
+  name: requiredText(ORDER_LIMITS.company, 'El nombre de la empresa'),
+  contactName: requiredText(ORDER_LIMITS.name, 'Con quién hablamos'),
+  contactPhone: phoneSchema.pipe(z.string().min(1, 'Su teléfono, para confirmar cada tarta')),
+  contactEmail: optionalEmail,
+  billingNotes: optionalMultiline(500),
+});
+
+/** What every cake on a list shares: the cake, the size, when, and the words. */
+const birthdayTemplate = {
+  cakeId: idSchema,
+  size: enumOf(SIZE_IDS, 'Elige el tamaño'),
+  timeSlot: enumOf(SLOT_IDS, 'Elige la franja'),
+  addressKind: enumOf<AddressKind>(['oficina', 'casa'], 'Oficina o casa'),
+  cakeText: optionalText(ORDER_LIMITS.cakeText),
+  cardMessage: optionalMultiline(ORDER_LIMITS.cardMessage),
+  signOff: optionalText(ORDER_LIMITS.signOff),
+  deliveryNotes: optionalText(ORDER_LIMITS.notes),
+};
+
+/**
+ * A pasted team list, with an address and postcode for the lines that leave
+ * them out (everyone at the same office). A line that cannot be read, or has
+ * nowhere to go, is an error: nothing is saved until the whole list is right.
+ */
+export const birthdayImportSchema = z
+  .object({
+    ...birthdayTemplate,
+    companyId: idSchema,
+    list: z.string().max(20_000, 'La lista es demasiado larga: pégala en dos veces'),
+    address: optionalText(ORDER_LIMITS.address),
+    postalCode: optionalText(5).refine((v) => v === null || isPostcode(v), 'Código postal de 5 cifras'),
+  })
+  .transform((input, ctx) => {
+    const { ok, bad } = parseBirthdayList(input.list);
+    if (bad.length > 0) {
+      ctx.addIssue({ code: 'custom', path: ['list'], message: `No se entienden estas líneas: ${bad.slice(0, 3).join(' | ')}` });
+      return z.NEVER;
+    }
+    if (ok.length === 0) {
+      ctx.addIssue({ code: 'custom', path: ['list'], message: 'Pega al menos una persona: Nombre; dd/mm; Empresa; Dirección; CP' });
+      return z.NEVER;
+    }
+    if (ok.length > 500) {
+      ctx.addIssue({ code: 'custom', path: ['list'], message: 'Como mucho 500 personas de una vez' });
+      return z.NEVER;
+    }
+    const people = ok.map((line) => ({
+      ...line,
+      address: line.address ?? input.address,
+      postalCode: line.postalCode ?? input.postalCode,
+    }));
+    const homeless = people.filter((p) => !p.address || !p.postalCode || p.address.length < 5);
+    if (homeless.length > 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['address'],
+        message: `Falta la dirección o el CP de ${homeless.length === 1 ? homeless[0]!.name : `${homeless.length} personas`}: ponla en la línea o aquí, para todos`,
+      });
+      return z.NEVER;
+    }
+    return { ...input, people: people as (typeof people[number] & { address: string; postalCode: string })[] };
+  });
+
+/** One person, edited in the panel. */
+export const birthdaySchema = z.object({
+  ...birthdayTemplate,
+  id: idSchema,
+  recipientName: requiredText(ORDER_LIMITS.name, 'Su nombre'),
+  recipientCompany: optionalText(ORDER_LIMITS.company),
+  birthday: z
+    .string()
+    .transform((v, ctx) => {
+      const parsed = parseDayMonth(v);
+      if (!parsed) {
+        ctx.addIssue({ code: 'custom', message: 'Día y mes, por ejemplo 14/03' });
+        return z.NEVER;
+      }
+      return parsed;
+    }),
+  address: cleanText(ORDER_LIMITS.address).pipe(z.string().min(5, 'La dirección')),
+  postalCode: postcodeSchema,
 });

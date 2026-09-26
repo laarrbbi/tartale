@@ -214,6 +214,8 @@ export interface NewOrder {
   birthdayId: number | null;
   birthdayYear: number | null;
   ipHash: string | null;
+  /** For the team, e.g. "Cumpleaños el domingo 12" when the cake goes out on the Friday. */
+  staffNote?: string | null;
 }
 
 /**
@@ -226,9 +228,10 @@ export async function insertOrder(input: NewOrder, db: Db = getDb()): Promise<Or
     `insert into orders (public_id, source, payment_method, occasion, bakery_id, zone_id, cake_id, cake_name, size,
         price_cents, delivery_cents, cake_text, card_message, sign_off, anonymous, allergies, recipient_name,
         recipient_company, recipient_phone, address_kind, address, postal_code, city, delivery_notes, deliver_on,
-        time_slot, sender_name, sender_phone, sender_email, sender_company, company_id, birthday_id, birthday_year, ip_hash)
+        time_slot, sender_name, sender_phone, sender_email, sender_company, company_id, birthday_id, birthday_year, ip_hash,
+        staff_note)
      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-             $24, $25::date, $26, $27, $28, $29, $30, $31, $32, $33, $34)
+             $24, $25::date, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
      on conflict do nothing
      returning ${COLUMNS}`,
     [
@@ -266,6 +269,7 @@ export async function insertOrder(input: NewOrder, db: Db = getDb()): Promise<Or
       input.birthdayId,
       input.birthdayYear,
       input.ipHash,
+      input.staffNote ?? null,
     ],
   );
   return row ? toOrder(row) : null;
@@ -538,12 +542,14 @@ export async function eraseOrder(id: number): Promise<boolean> {
   });
 }
 
-/** Finished orders (delivered or cancelled) whose delivery day is more than `days` ago. */
+/**
+ * Orders whose delivery day is more than `days` ago, whatever their status: an
+ * order nobody marked "Entregado" must not keep its people forever.
+ */
 export async function findOrdersToErase(days: number, today: string): Promise<number[]> {
   const { rows } = await getDb().query<{ id: number }>(
     `select id from orders
-      where erased_at is null and status in ('entregado', 'cancelado')
-        and deliver_on < $2::date - $1::int`,
+      where erased_at is null and deliver_on < $2::date - $1::int`,
     [days, today],
   );
   return rows.map((r) => r.id);

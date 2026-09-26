@@ -1,12 +1,29 @@
 'use client';
 
-import { useActionState, useEffect, useRef, type ReactNode } from 'react';
+import { startTransition, useActionState, useEffect, useRef, type FormEvent, type ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
 import { CSRF_FIELD } from '@/lib/constants';
 import { IDLE, type ActionState } from '@/server/actions/types';
+
+/**
+ * React resets a form once its action has run — even when the server
+ * answered "check this field", so whatever was typed is gone. Cancelling the
+ * native submit and dispatching inside a transition ourselves keeps the
+ * values, and `useFormStatus` still reports pending. The `action` stays on the
+ * <form> too, so a tap before hydration is still a POST, never a GET with the
+ * fields in the URL.
+ */
+export function submitKeepingValues(dispatch: (formData: FormData) => void) {
+  return (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const formData = new FormData(event.currentTarget, submitter);
+    startTransition(() => dispatch(formData));
+  };
+}
 
 /**
  * Every panel form goes through here, so the CSRF token cannot be forgotten
@@ -33,7 +50,7 @@ export function AdminForm({
   }, [resetOnSuccess, state]);
 
   return (
-    <form ref={formRef} action={formAction} className={cn('flex flex-col gap-4', className)}>
+    <form ref={formRef} action={formAction} onSubmit={submitKeepingValues(formAction)} className={cn('flex flex-col gap-4', className)}>
       <input type="hidden" name={CSRF_FIELD} value={csrfToken} />
       {children(state)}
     </form>
