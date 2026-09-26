@@ -1,0 +1,364 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   Tartale design tokens
+
+   Warm and quiet: cream paper, chocolate ink, one raspberry accent. Fraunces
+   (a soft serif) speaks in the headlines; DM Sans does the reading. Every
+   colour below passes WCAG AA for the text sizes it is used at.
+   ========================================================================== */
+
+@theme {
+  --font-sans:
+    var(--font-dm-sans), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, 'Times New Roman', serif;
+
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+
+  --duration-press: 140ms;
+  --duration-hover: 180ms;
+  --duration-pop: 200ms;
+  --duration-step: 260ms;
+
+  --radius-field: 0.75rem;
+  --radius-card: 1.25rem;
+  --radius-pill: 999px;
+}
+
+:root {
+  color-scheme: light;
+
+  --canvas: #fbf6ef;
+  --surface: #fffdfa;
+  --surface-sunken: #f4ebdf;
+  --vanilla: #f5e6d3;
+  --chocolate: #2b1810;
+
+  --ink: #2b1810;
+  --ink-muted: #6e5747;
+  --ink-subtle: #7d6555;
+  --ink-inverse: #fffdfa;
+
+  --line: #eadfd1;
+  --line-strong: #d8c6b1;
+
+  /* Raspberry: the one accent. */
+  --brand: #b02e55;
+  --brand-hover: #962447;
+  --brand-soft: #fbe6ea;
+
+  --positive: #2e7d4f;
+  --positive-soft: #e5f2ea;
+  --caution: #9a6414;
+  --caution-soft: #f8eedc;
+  --critical: #b3261e;
+  --critical-soft: #f9e5e3;
+
+  --shadow-sm: 0 1px 2px rgb(43 24 16 / 0.06);
+  --shadow-card: 0 1px 2px rgb(43 24 16 / 0.05), 0 8px 24px -12px rgb(43 24 16 / 0.12);
+  --shadow-lift: 0 18px 40px -18px rgb(43 24 16 / 0.35);
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-vanilla: var(--vanilla);
+  --color-chocolate: var(--chocolate);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-ink-inverse: var(--ink-inverse);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-caution: var(--caution);
+  --color-caution-soft: var(--caution-soft);
+  --color-critical: var(--critical);
+  --color-critical-soft: var(--critical-soft);
+}
+
+/* --------------------------------------------------------------------------
+   Base
+   -------------------------------------------------------------------------- */
+
+* {
+  border-color: var(--line);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.type-hero {
+  font-family: var(--font-display);
+  font-size: clamp(2.35rem, 9vw, 4.25rem);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  font-weight: 560;
+}
+
+.type-display {
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 6.5vw, 2.75rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  font-weight: 560;
+}
+
+.type-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 4.8vw, 1.75rem);
+  line-height: 1.2;
+  letter-spacing: -0.012em;
+  font-weight: 560;
+}
+
+.type-heading {
+  font-size: 1.0625rem;
+  line-height: 1.35;
+  letter-spacing: -0.011em;
+  font-weight: 650;
+}
+
+.type-body {
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.type-lead {
+  font-size: 1.125rem;
+  line-height: 1.55;
+  color: var(--ink-muted);
+}
+
+.type-caption {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  letter-spacing: 0.006em;
+  color: var(--ink-muted);
+}
+
+.type-eyebrow {
+  font-size: 0.75rem;
+  line-height: 1.3;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 650;
+  color: var(--brand);
+}
+
+.type-numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   Focus: one ring, keyboard only
+   -------------------------------------------------------------------------- */
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* --------------------------------------------------------------------------
+   Motion
+   -------------------------------------------------------------------------- */
+
+.pressable {
+  transition: transform var(--duration-press) var(--ease-out-strong);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.pressable:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hoverable {
+    transition:
+      transform var(--duration-hover) var(--ease-out-strong),
+      box-shadow var(--duration-hover) var(--ease-out-strong);
+  }
+  .hoverable:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
+}
+
+.step-enter {
+  animation: step-in var(--duration-step) var(--ease-out-strong) both;
+}
+
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise-in {
+  animation: rise-in 420ms var(--ease-out-strong) both;
+}
+
+/* The two chat bubbles in the hero comparison arrive one after the other. */
+.bubble-in {
+  animation: rise-in 360ms var(--ease-out-strong) both;
+}
+
+.chrome {
+  background-color: color-mix(in oklch, var(--canvas) 92%, transparent);
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+}
+
+/* --------------------------------------------------------------------------
+   Floating labels: the label sits inside an empty field and moves onto the
+   border once the field is focused or filled. Driven by :placeholder-shown,
+   which is why every Input carries a placeholder (blank if it has none).
+   -------------------------------------------------------------------------- */
+
+.float-field {
+  position: relative;
+}
+
+.float-field > .float-label {
+  position: absolute;
+  left: 0.75rem;
+  top: 0;
+  z-index: 1;
+  max-width: calc(100% - 1.5rem);
+  overflow: hidden;
+  padding: 0 0.3rem;
+  background-color: var(--surface);
+  color: var(--ink-muted);
+  font-size: 0.75rem;
+  font-weight: 550;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition:
+    top var(--duration-hover) var(--ease-out-strong),
+    font-size var(--duration-hover) var(--ease-out-strong),
+    color var(--duration-hover) var(--ease-out-strong);
+}
+
+.float-field:has(> input:placeholder-shown:not(:focus)) > .float-label {
+  top: 50%;
+  color: var(--ink-subtle);
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.float-field:has(> textarea:placeholder-shown:not(:focus)) > .float-label {
+  top: 1.5rem;
+  color: var(--ink-subtle);
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.float-field:focus-within > .float-label {
+  color: var(--brand);
+}
+
+.float-field > :is(input, textarea, select):focus-visible {
+  outline: none;
+}
+
+.float-field > :is(input, textarea):not(:focus)::placeholder {
+  color: transparent;
+}
+
+.float-field[data-invalid] > :is(input, textarea, select) {
+  --tw-ring-color: var(--critical);
+}
+
+.float-field[data-invalid] > .float-label {
+  color: var(--critical);
+}
+
+/* FAQ: native <details>, a rotating plus. */
+details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details[open] .faq-plus {
+  transform: rotate(45deg);
+}
+.faq-plus {
+  transition: transform var(--duration-pop) var(--ease-out-strong);
+}
+
+/* Printing (the A6 card): nothing but the card. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .step-enter,
+  .rise-in,
+  .bubble-in {
+    animation: fade-in 200ms ease both;
+  }
+  .pressable:active {
+    transform: none;
+  }
+  .hoverable:hover {
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
