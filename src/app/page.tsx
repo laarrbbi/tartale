@@ -6,6 +6,8 @@ import { CardPreview } from '@/components/card/card-preview';
 import { ChatCompare } from '@/components/landing/chat-compare';
 import { HeroFilm } from '@/components/landing/hero-film';
 import { OrderTicket, type TicketLine } from '@/components/landing/order-ticket';
+import { CAKE_TOPS, PrintedCake, ProposalPrint } from '@/components/landing/printed-cakes';
+import { EXAMPLE_PHONE, PrintedRail } from '@/components/landing/printed-rail';
 import { RevealOnScroll } from '@/components/motion/reveal-on-scroll';
 import { BoxPreview } from '@/components/order/box-preview';
 import { SiteFooter } from '@/components/site/site-footer';
@@ -163,7 +165,7 @@ export default async function HomePage() {
         {/* ---------------------------------------------------------------- Hero */}
         <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-[#1a0f0a] text-[#fffaf3]">
           {/* On a phone the film fills the top and the words sit under it; on a wide screen it fills everything. */}
-          <HeroFilm className="hero-film absolute inset-x-0 top-0 -z-20 h-[62%] w-full object-cover object-[60%_30%] md:inset-0 md:h-full" />
+          <HeroFilm className="hero-film absolute inset-x-0 top-0 -z-20 h-[62%] w-full object-cover object-[70%_30%] md:inset-0 md:h-full md:object-[60%_30%]" />
           {/* Shade where the words are: from the bottom on a phone, from the left on a wide screen. */}
           <div
             aria-hidden
@@ -171,14 +173,14 @@ export default async function HomePage() {
           />
 
           <div className="mx-auto flex min-h-[calc(100svh-4rem)] max-w-6xl flex-col justify-end px-5 pb-12 pt-40 md:min-h-[44rem] md:justify-center md:pb-20 md:pt-20">
-            {/* The rest of the story, as it happens on the other side. Times are an example. */}
+            {/* The story of the film, with times: an example, not a promise. On a phone the film tells it alone. */}
             <ol
               aria-label="Lo que pasa cuando llega"
-              className="mb-7 flex flex-wrap gap-x-2 gap-y-2 text-[0.8125rem] text-[#f5e6d3] md:absolute md:right-6 md:top-12 md:mb-0 md:flex-col md:items-end md:gap-2 lg:right-10"
+              className="hidden text-[0.8125rem] text-[#f5e6d3] md:absolute md:right-6 md:flex md:top-12 md:mb-0 md:flex-col md:items-end md:gap-2 lg:right-10"
             >
               {[
-                { time: '10:02', text: 'Llega a su oficina', d: 900 },
-                { time: '10:04', text: 'Abre la caja y lee tu tarjeta', d: 2200 },
+                { time: '10:02', text: 'Madrid. Otra llamada de las malas', d: 900 },
+                { time: '10:05', text: 'Le llega tu tarta: «Contáctame»', d: 2200 },
               ].map((tick) => (
                 <li
                   key={tick.time}
@@ -227,16 +229,39 @@ export default async function HomePage() {
             ) : null}
           </div>
 
-          {/* What arrived: the printed cake and the card, landing on the table. */}
-          <div className="hero-card absolute bottom-10 right-6 hidden w-[17rem] rotate-[-4deg] lg:right-10 lg:block xl:w-[19rem]" style={vars({ '--d': 1500 })}>
-            <BoxPreview
-              photo="/samples/logo.svg"
-              cakeText="¿Un café esta semana?"
-              cardDesign="mano"
-              cardMessage="Te dejo la tarta como excusa. ¿Hablamos?"
-              signOff="Pablo"
-              to="Javier"
-            />
+          {/* What arrived: the cake from the film, as a photo landing on the table. */}
+          <figure
+            className="hero-card absolute bottom-10 right-6 hidden w-[14rem] rotate-[-4deg] bg-white p-2 pb-2.5 shadow-[var(--shadow-lift)] lg:right-10 lg:block xl:w-[16rem]"
+            style={vars({ '--d': 1500 })}
+          >
+            <PrintedCake
+              photo="/cakes/red-velvet.jpg"
+              top={CAKE_TOPS['red-velvet']!}
+              alt={`Tarta Red Velvet${bakery ? ` de ${bakery}` : ''} con «Contáctame, tengo una propuesta» impreso encima`}
+              sizes="26rem"
+              zoom={1.55}
+            >
+              <ProposalPrint phone={EXAMPLE_PHONE} />
+            </PrintedCake>
+            <figcaption className="mt-2 text-center font-hand text-[1.25rem] leading-none text-ink-muted">lo que le llega</figcaption>
+          </figure>
+        </section>
+
+        {/* --------------------------------------------------- How it looks */}
+        <section aria-labelledby="asi-queda" className="overflow-hidden border-b border-line py-14 md:py-20">
+          <div data-reveal="rise" className="mx-auto flex max-w-6xl flex-col gap-3 px-5 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 id="asi-queda" className="type-display text-balance">
+                Así queda impresa.
+              </h2>
+              <p className="type-lead mt-3 max-w-xl text-pretty">
+                Tu logo, tu foto o tu frase, encima de una tarta de la carta{bakery ? ` de ${bakery}` : ''}.
+              </p>
+            </div>
+            <p className="type-caption md:max-w-[16rem] md:text-right">Montajes de ejemplo sobre fotos de las tartas de la carta.</p>
+          </div>
+          <div className="mt-8 md:mt-10">
+            <PrintedRail bakery={bakery} />
           </div>
         </section>
 

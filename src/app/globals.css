@@ -671,3 +671,36 @@ html.js [data-reveal='mail'] .mail-reply {
     opacity: 0;
   }
 }
+
+/* "Así queda impresa": a strip of photos drifting past, forever, at walking
+   pace. Constant motion, so linear. It stops under the pointer, and for
+   reduced motion it does not move at all: it scrolls by hand instead. */
+.marquee {
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+}
+.marquee-track {
+  animation: marquee 70s linear infinite;
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
+}
+.marquee:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee {
+    overflow-x: auto;
+  }
+  .marquee-track {
+    animation: none;
+  }
+}

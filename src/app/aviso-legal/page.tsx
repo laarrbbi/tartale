@@ -45,8 +45,9 @@ export default function LegalNoticePage() {
         imprimir su tarta, su tarjeta y su documento.
       </p>
       <p>
-        El vídeo de la portada es de Gustavo Fring, publicado en Pexels con su licencia libre. La persona que aparece no tiene
-        relación con {BRAND.name}.
+        El vídeo de la portada está montado con clips de Kampus Production publicados en Pexels con su licencia libre, y con
+        una foto de una tarta de la carta. La persona que aparece no tiene relación con {BRAND.name}, y las impresiones que se
+        ven en las tartas de la web son ejemplos.
       </p>
 
       <h2>Ley aplicable</h2>

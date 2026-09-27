@@ -3,10 +3,12 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * The film behind the hero: a man in a suit, on the phone, smiling. It plays
- * only while it is on screen, and not at all for people who asked for less
- * motion or to save data: they get the still, which is the same moment.
- * Muted, looped, 9 seconds, about 400 KB (WebM) or 650 KB (MP4).
+ * The film behind the hero, in three shots: a man in a suit having a bad call
+ * in his office; the cake that arrives, «Contáctame, tengo una propuesta» and
+ * a number printed on it; the same man laughing on the phone. It plays only
+ * while it is on screen, and not at all for people who asked for less motion
+ * or to save data: they get the still. Muted, looped, 11 seconds, about
+ * 440 KB (WebM) or 640 KB (MP4).
  */
 export function HeroFilm({ className }: { className?: string }) {
   const ref = useRef<HTMLVideoElement>(null);
