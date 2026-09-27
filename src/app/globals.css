@@ -383,3 +383,24 @@ details[open] .faq-plus {
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
+
+/* The halo under a city's pin on /zonas: a slow ring, so the map reads as live. */
+.map-ping {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .map-ping {
+    animation: map-ping 2.6s var(--ease-out-strong) infinite;
+  }
+}
+@keyframes map-ping {
+  from {
+    transform: scale(0.5);
+    opacity: 0.35;
+  }
+  to {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}

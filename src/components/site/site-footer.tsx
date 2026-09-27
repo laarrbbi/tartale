@@ -11,11 +11,12 @@ export function SiteFooter() {
         <div>
           <Logo inverse />
           <p className="mt-3 max-w-sm text-[0.9375rem] text-pretty text-[#e8d8c6]">
-            {BRAND.tagline} Tartas de pastelería con tu tarjeta, entregadas en su oficina.
+            {BRAND.tagline} Tartas con tu foto impresa y tu tarjeta, entregadas en su oficina.
           </p>
         </div>
         <nav aria-label="Enlaces" className="grid grid-cols-2 gap-2 text-[0.9375rem] text-[#e8d8c6]">
           <Link href="/enviar" className="hover:text-white">Enviar una tarta</Link>
+          <Link href="/zonas" className="hover:text-white">Dónde entregamos</Link>
           <Link href="/#preguntas" className="hover:text-white">Preguntas</Link>
           <Link href="/condiciones" className="hover:text-white">Condiciones</Link>
           <Link href="/privacidad" className="hover:text-white">Privacidad</Link>

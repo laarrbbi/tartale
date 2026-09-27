@@ -11,11 +11,16 @@ export function SiteHeader({ cta = true }: { cta?: boolean }) {
         <Link href="/" aria-label="Tartale, inicio" className="pressable">
           <Logo />
         </Link>
-        {cta ? (
-          <ButtonLink href="/enviar" size="sm">
-            Enviar una tarta
-          </ButtonLink>
-        ) : null}
+        <nav aria-label="Principal" className="flex items-center gap-1 sm:gap-3">
+          <Link href="/zonas" className="hidden rounded-pill px-3 py-2 text-[0.875rem] font-medium text-ink-muted hover:text-ink sm:inline-flex">
+            Dónde entregamos
+          </Link>
+          {cta ? (
+            <ButtonLink href="/enviar" size="sm">
+              Enviar una tarta
+            </ButtonLink>
+          ) : null}
+        </nav>
       </div>
     </header>
   );
