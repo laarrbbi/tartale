@@ -264,9 +264,8 @@ create index if not exists orders_payment_idx on public.orders (payment_status, 
 create unique index if not exists orders_birthday_year_idx
   on public.orders (birthday_id, birthday_year) where birthday_id is not null;
 
--- The photo for the cake. Its type was read from its first bytes, not from
--- what the browser claimed. Unused for now: nothing is printed on the cakes
--- yet (see 20260927120000_card_designs_and_documents.sql).
+-- The photo printed on top of the cake. Its type was read from its first
+-- bytes, not from what the browser claimed; erased with the order's people.
 create table if not exists public.order_photos (
   order_id   bigint      primary key references public.orders(id) on delete cascade,
   mime       text        not null check (mime in ('image/jpeg', 'image/png', 'image/webp')),

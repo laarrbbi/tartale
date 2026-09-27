@@ -10,6 +10,8 @@ export interface MessageOrder {
   id: number;
   cakeName: string;
   size: keyof typeof SIZES;
+  cakeText: string | null;
+  hasPhoto: boolean;
   cardDesign: CardDesign;
   hasDocument: boolean;
   allergies: string | null;
@@ -50,13 +52,15 @@ export function senderConfirmation(order: MessageOrder, trackingUrl: string): st
 }
 
 /**
- * To the bakery: everything it needs to bake and deliver. Nothing is written
- * on the cake; the card (and a document, if there is one) go in the box.
+ * To the bakery: everything it needs to bake and deliver. On top of the cake,
+ * the printed photo and the line; in the box, the card (and a document, if
+ * there is one).
  */
 export function bakeryBrief(order: MessageOrder): string {
   const lines = [
     `Pedido Tartale nº ${order.id} · ${longDate(order.deliverOn)}, ${SLOTS[order.timeSlot].label.toLowerCase()} (${SLOTS[order.timeSlot].hours})`,
-    `Tarta: ${order.cakeName}, ${SIZES[order.size].label.toLowerCase()}. Sin nada escrito encima.`,
+    `Tarta: ${order.cakeName}, ${SIZES[order.size].label.toLowerCase()}`,
+    `Encima: ${order.cakeText ? `«${order.cakeText}»` : '(sin frase)'}${order.hasPhoto ? ' · con foto impresa' : ' · sin foto'}`,
   ];
   if (order.allergies) lines.push(`Alergias: ${order.allergies}`);
   lines.push(

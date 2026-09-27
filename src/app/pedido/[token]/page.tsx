@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { CardPreview } from '@/components/card/card-preview';
+import { BoxPreview } from '@/components/order/box-preview';
 import { CopyLinkButton, PayNowButton } from '@/components/order/tracking-actions';
 import { SiteFooter } from '@/components/site/site-footer';
 import { SiteHeader } from '@/components/site/site-header';
@@ -117,17 +117,29 @@ export default async function TrackingPage({
           </ol>
         ) : null}
 
-        <section aria-label="La tarjeta" className="flex flex-col items-center gap-3">
-          <CardPreview
-            design={order.cardDesign}
-            message={order.cardMessage ?? ''}
+        <section aria-label="Lo que le llega" className="flex flex-col items-center gap-4">
+          <BoxPreview
+            photo={order.hasPhoto ? `/api/pedidos/${order.publicId}/foto` : null}
+            cakeText={order.cakeText}
+            cardDesign={order.cardDesign}
+            cardMessage={order.cardMessage ?? ''}
             signOff={order.signOff}
             to={order.recipientName}
-            placeholder=" "
-            className="max-w-[16rem] shadow-[var(--shadow-lift)]"
+            documentName={document?.filename ?? null}
+            cardPlaceholder=" "
+            cakePlaceholder=""
+            className="max-w-[22rem]"
           />
           <p className="type-caption text-center text-pretty">
-            Va impresa en la caja, con la tarta{document ? `, junto a tu documento (${document.filename})` : ''}.
+            {order.hasPhoto && order.cakeText
+              ? 'Tu foto y tu frase, impresas encima. '
+              : order.hasPhoto
+                ? 'Tu foto, impresa encima. '
+                : order.cakeText
+                  ? 'Tu frase, encima. '
+                  : ''}
+            La tarjeta va impresa en la caja{document ? `, con tu documento (${document.filename})` : ''}. Un boceto: la
+            tarta de verdad la hace la pastelería.
           </p>
         </section>
 

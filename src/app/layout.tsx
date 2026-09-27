@@ -52,14 +52,14 @@ export const metadata: Metadata = {
     template: `%s · ${BRAND.name}`,
   },
   description:
-    'Envía una tarta de pastelería con una tarjeta escrita por ti —y, si quieres, tu CV o tu propuesta impresos— a la oficina de un cliente, un inversor, un reclutador o alguien de tu equipo. En Alicante.',
+    'Envía una tarta con tu foto o tu logo impresos encima y una tarjeta escrita por ti —y, si quieres, tu CV o tu propuesta en la caja— a la oficina de un cliente, un inversor, un reclutador o alguien de tu equipo. En Alicante.',
   applicationName: BRAND.name,
   openGraph: {
     type: 'website',
     locale: 'es_ES',
     siteName: BRAND.name,
     title: BRAND.tagline,
-    description: 'Una tarta de pastelería y tu tarjeta, entregadas en su oficina.',
+    description: 'Una tarta con tu foto impresa y tu tarjeta, entregada en su oficina.',
   },
 };
 

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { CARD_DESIGN_IDS, ORDER_DOCUMENT } from '@/lib/cards';
 import { LIMITS } from '@/lib/constants';
 import { isIsoDay } from '@/lib/dates';
-import { OCCASION_IDS, ORDER_LIMITS, SIZE_IDS, SLOT_IDS, type AddressKind } from '@/lib/orders';
+import { OCCASION_IDS, ORDER_LIMITS, ORDER_PHOTO, SIZE_IDS, SLOT_IDS, type AddressKind } from '@/lib/orders';
 
 /**
  * Every value that crosses a trust boundary is parsed here before it reaches
@@ -87,13 +87,19 @@ export const postcodeSchema = z
 // Public: an order from /enviar
 // ---------------------------------------------------------------------------
 
-/** The document as a data URL (base64 is 4/3 of the bytes); the service checks the bytes themselves. */
-const DOCUMENT_MAX_CHARS = Math.ceil((ORDER_DOCUMENT.maxBytes * 4) / 3) + 200;
+/** Files arrive as data URLs (base64 is 4/3 of the bytes); the service checks the bytes themselves. */
+const base64Chars = (bytes: number) => Math.ceil((bytes * 4) / 3) + 200;
 
 export const orderInputSchema = z.object({
-  // The cake: nothing is written on it (yet), the words go on the card.
+  // The cake, and what is printed on top of it: a photo and a short line.
   cakeId: idSchema,
   size: enumOf(SIZE_IDS, 'Elige el tamaño'),
+  photo: z
+    .string()
+    .max(base64Chars(ORDER_PHOTO.maxBytes), 'La foto es demasiado grande')
+    .nullish()
+    .transform((v) => v || null),
+  cakeText: optionalText(ORDER_LIMITS.cakeText),
   allergies: optionalText(ORDER_LIMITS.notes),
 
   // The card, and a document to print and put in the box
@@ -102,7 +108,7 @@ export const orderInputSchema = z.object({
   document: z
     .object({
       name: z.string().max(260),
-      data: z.string().max(DOCUMENT_MAX_CHARS, 'El documento es demasiado grande (máximo 3 MB)'),
+      data: z.string().max(base64Chars(ORDER_DOCUMENT.maxBytes), 'El documento es demasiado grande (máximo 2 MB)'),
     })
     .nullish()
     .transform((v) => v ?? null),

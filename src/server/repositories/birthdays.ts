@@ -109,6 +109,7 @@ export interface Birthday {
   deliveryNotes: string | null;
   cakeId: number;
   size: CakeSize;
+  cakeText: string | null;
   cardDesign: CardDesign;
   cardMessage: string | null;
   signOff: string | null;
@@ -129,6 +130,7 @@ interface BirthdayRow {
   delivery_notes: string | null;
   cake_id: number;
   size: CakeSize;
+  cake_text: string | null;
   card_design: CardDesign;
   card_message: string | null;
   sign_off: string | null;
@@ -136,7 +138,7 @@ interface BirthdayRow {
 }
 
 const BIRTHDAY_COLUMNS = `id, company_id, active, recipient_name, recipient_company, birth_day, birth_month, address_kind,
-  address, postal_code, delivery_notes, cake_id, size, card_design, card_message, sign_off, time_slot`;
+  address, postal_code, delivery_notes, cake_id, size, cake_text, card_design, card_message, sign_off, time_slot`;
 
 function toBirthday(r: BirthdayRow): Birthday {
   return {
@@ -153,6 +155,7 @@ function toBirthday(r: BirthdayRow): Birthday {
     deliveryNotes: r.delivery_notes,
     cakeId: r.cake_id,
     size: r.size,
+    cakeText: r.cake_text,
     cardDesign: r.card_design,
     cardMessage: r.card_message,
     signOff: r.sign_off,
@@ -178,8 +181,9 @@ export async function findBirthday(id: number): Promise<Birthday | null> {
 export type BirthdayInput = Omit<Birthday, 'id'>;
 
 const INSERT_BIRTHDAY = `insert into birthdays (company_id, active, recipient_name, recipient_company, birth_day, birth_month,
-    address_kind, address, postal_code, delivery_notes, cake_id, size, card_design, card_message, sign_off, time_slot)
-  values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`;
+    address_kind, address, postal_code, delivery_notes, cake_id, size, cake_text, card_design, card_message, sign_off,
+    time_slot)
+  values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`;
 
 function birthdayParams(b: BirthdayInput): unknown[] {
   return [
@@ -195,6 +199,7 @@ function birthdayParams(b: BirthdayInput): unknown[] {
     b.deliveryNotes,
     b.cakeId,
     b.size,
+    b.cakeText,
     b.cardDesign,
     b.cardMessage,
     b.signOff,
@@ -215,8 +220,8 @@ export async function updateBirthday(id: number, input: Omit<BirthdayInput, 'com
   const { rowCount } = await getDb().query(
     `update birthdays
         set recipient_name = $2, recipient_company = $3, birth_day = $4, birth_month = $5, address_kind = $6,
-            address = $7, postal_code = $8, delivery_notes = $9, cake_id = $10, size = $11, card_design = $12,
-            card_message = $13, sign_off = $14, time_slot = $15, updated_at = now()
+            address = $7, postal_code = $8, delivery_notes = $9, cake_id = $10, size = $11, cake_text = $12,
+            card_design = $13, card_message = $14, sign_off = $15, time_slot = $16, updated_at = now()
       where id = $1`,
     [
       id,
@@ -230,6 +235,7 @@ export async function updateBirthday(id: number, input: Omit<BirthdayInput, 'com
       input.deliveryNotes,
       input.cakeId,
       input.size,
+      input.cakeText,
       input.cardDesign,
       input.cardMessage,
       input.signOff,

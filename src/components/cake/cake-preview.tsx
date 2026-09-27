@@ -8,30 +8,29 @@ const PIPING = Array.from({ length: 40 }, (_, i) => {
 
 /**
  * The cake seen from above, as it will arrive: the photo printed on top and
- * the line of text over it. A sketch, not a promise — the bakery confirms how
- * the print will look — and the pages that show it say so.
+ * the line of text over it. A sketch, not a promise — the pages that show it
+ * say so — drawn the same in the order form, the tracking page, the panel and
+ * the landing page.
  *
  * Pure markup with no hooks and no SVG ids, so any number of cakes can share
- * a page: the order form, the tracking page, the panel and the landing page
- * all draw the same one.
+ * a page. It fills its container; cap it with a `max-w-…` class.
  */
 export function CakePreview({
   photo,
   text,
   className,
   label = 'Vista previa de la tarta',
+  placeholder = 'Tu foto y tu frase, aquí',
 }: {
   photo: string | null;
   text: string | null;
   className?: string;
   label?: string;
+  placeholder?: string;
 }) {
   const hasText = Boolean(text && text.trim());
   return (
-    <figure
-      aria-label={label}
-      className={cn('@container relative mx-auto aspect-square w-full max-w-[22rem] select-none', className)}
-    >
+    <figure aria-label={label} className={cn('@container relative aspect-square w-full select-none', className)}>
       {/* The board it sits on, and the frosted top. */}
       <div
         aria-hidden
@@ -61,17 +60,17 @@ export function CakePreview({
           className={cn(
             'absolute inset-x-[21%] text-balance text-center font-display font-semibold leading-[1.08] break-words',
             photo
-              ? 'bottom-[22%] text-[clamp(0.75rem,6.4cqw,1.55rem)] text-white [text-shadow:0_1px_0_rgb(0_0_0_/_0.55),0_0_10px_rgb(0_0_0_/_0.45)]'
-              : 'top-1/2 -translate-y-1/2 text-[clamp(0.9rem,8cqw,2rem)] text-[#7a3b2a]',
+              ? 'bottom-[22%] text-[6.4cqw] text-white [text-shadow:0_1px_0_rgb(0_0_0_/_0.55),0_0_10px_rgb(0_0_0_/_0.45)]'
+              : 'top-1/2 -translate-y-1/2 text-[8cqw] text-[#7a3b2a]',
           )}
         >
           {text}
         </figcaption>
       ) : null}
 
-      {!photo && !hasText ? (
-        <figcaption className="absolute inset-x-[24%] top-1/2 -translate-y-1/2 text-center text-[clamp(0.75rem,4.6cqw,1rem)] text-ink-subtle">
-          Tu foto y tu frase, aquí
+      {!photo && !hasText && placeholder ? (
+        <figcaption className="absolute inset-x-[24%] top-1/2 -translate-y-1/2 text-center text-[4.8cqw] leading-snug text-ink-subtle">
+          {placeholder}
         </figcaption>
       ) : null}
     </figure>

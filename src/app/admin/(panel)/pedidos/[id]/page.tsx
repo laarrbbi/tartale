@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import { CardPreview } from '@/components/card/card-preview';
+import { BoxPreview } from '@/components/order/box-preview';
 import { DeleteOrderForm, EraseOrderForm, ManualPaymentForm, RefundForm, StatusControls, UpdateOrderForm } from '@/components/admin/order-forms';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
@@ -36,6 +36,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
     order.hasDocument ? getOrderDocumentInfo(order.id) : Promise.resolve(null),
   ]);
   const tracking = trackingUrl(order.publicId);
+  const photoUrl = `/api/pedidos/${order.publicId}/foto`;
   const awaitingPayment = order.paymentMethod === 'stripe' && (order.paymentStatus === 'pendiente' || order.paymentStatus === 'caducado');
   const refundable = order.paymentMethod === 'stripe' ? order.paidCents - order.refundedCents : 0;
   const waSender = whatsappLink(order.senderPhone, senderConfirmation(order, tracking));
@@ -90,20 +91,34 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader title="Lo que va en la caja" description="La tarta, sin nada escrito encima; la tarjeta y, si lo hay, el documento, impresos." />
+          <CardHeader title="La tarta y la caja" description="Encima, la foto y la frase impresas; en la caja, la tarjeta y, si lo hay, el documento." />
           <CardBody className="flex flex-col gap-3 pt-2">
+            <BoxPreview
+              photo={order.hasPhoto ? photoUrl : null}
+              cakeText={order.cakeText}
+              cardDesign={order.cardDesign}
+              cardMessage={order.cardMessage ?? ''}
+              signOff={order.signOff}
+              to={order.recipientName}
+              documentName={document?.filename ?? null}
+              cardPlaceholder="(sin mensaje)"
+              cakePlaceholder="Sin foto ni frase"
+              className="max-w-[17rem]"
+            />
             <p className="type-body">
               Tarta {order.cakeName} · {SIZES[order.size].label.toLowerCase()}
             </p>
+            <p className="type-body">
+              <span className="text-ink-muted">Encima: </span>
+              <strong>{order.cakeText ? `«${order.cakeText}»` : '(sin frase)'}</strong>
+              {order.hasPhoto ? ' · con foto' : ' · sin foto'}
+            </p>
+            {order.hasPhoto && !order.erased ? (
+              <a href={`${photoUrl}?descargar`} className={link}>
+                Descargar la foto para la impresora
+              </a>
+            ) : null}
             {order.allergies ? <p className="type-body font-medium text-critical">Alergias: {order.allergies}</p> : null}
-            <CardPreview
-              design={order.cardDesign}
-              message={order.cardMessage ?? ''}
-              signOff={order.signOff}
-              to={order.recipientName}
-              placeholder="(sin mensaje)"
-              className="max-w-[13rem] shadow-[var(--shadow-card)]"
-            />
             <p className="type-caption">
               Tarjeta {CARD_DESIGNS[order.cardDesign].label.toLowerCase()} · {order.signOff ? `firmada: ${order.signOff}` : 'anónima'}
             </p>

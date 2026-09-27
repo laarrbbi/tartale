@@ -9,8 +9,9 @@ import { orderInputSchema } from '@/server/validation/schemas';
 export const dynamic = 'force-dynamic';
 
 /**
- * A 3 MB document is 4 MB as base64, and it is most of this. Under Vercel's
- * 4.5 MB limit for a request body, so ours is the one that answers.
+ * The cake's photo (1 MB at most) and the document for the box (2 MB) are 4 MB
+ * as base64, and they are most of this. Under Vercel's 4.5 MB limit for a
+ * request body, so ours is the one that answers.
  */
 const MAX_BODY_BYTES = 4_200_000;
 
@@ -22,7 +23,9 @@ const REASONS: Record<PlaceOrderFailure, { status: number; message: string }> = 
   zone: { status: 400, message: 'Todavía no llevamos tartas a ese código postal.' },
   cake: { status: 400, message: 'Esa tarta ya no está disponible. Elige otra.' },
   size: { status: 400, message: 'Esa tarta no se hace en ese tamaño. Elige otro.' },
-  document: { status: 400, message: 'No hemos podido leer el documento. Tiene que ser un PDF, JPG o PNG de hasta 3 MB.' },
+  no_photo: { status: 400, message: 'La pastelería de esa zona no imprime fotos. Quita la foto para seguir.' },
+  photo: { status: 400, message: 'No hemos podido leer la foto. Prueba con otra (JPG o PNG).' },
+  document: { status: 400, message: 'No hemos podido leer el documento. Tiene que ser un PDF, JPG o PNG de hasta 2 MB.' },
   invalid: { status: 400, message: 'Elige el día de la entrega.' },
   too_soon: { status: 400, message: 'Necesitamos un poco más de antelación: elige otro día.' },
   too_far: { status: 400, message: 'Ese día está demasiado lejos. Elige uno más cercano.' },
@@ -40,7 +43,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   } catch (error) {
     if (error instanceof BodyTooLargeError) {
       return NextResponse.json(
-        { message: 'El documento es demasiado grande: como mucho 3 MB.', fields: { document: 'Demasiado grande' } },
+        { message: 'Entre la foto y el documento pesan demasiado: el documento, como mucho 2 MB.', fields: { document: 'Demasiado grande' } },
         { status: 413, headers: noStore },
       );
     }

@@ -34,10 +34,12 @@ export function trackingUrl(publicId: string): string {
  * placed — so nothing the browser sends can change what is charged.
  */
 export async function openCheckout(order: Order): Promise<{ url: string }> {
+  const top = order.hasPhoto ? (order.cakeText ? 'tu foto y tu frase encima' : 'tu foto encima') : order.cakeText ? 'tu frase encima' : null;
+  const box = order.hasDocument ? 'tu tarjeta y tu documento impreso en la caja' : 'tu tarjeta en la caja';
   const lines = [
     {
       name: `Tarta ${order.cakeName} (${SIZES[order.size].label.toLowerCase()})`,
-      description: order.hasDocument ? 'Con tu tarjeta y tu documento impreso en la caja' : 'Con tu tarjeta en la caja',
+      description: `Con ${top ? `${top}; ` : ''}${box}`,
       unitAmountCents: order.priceCents,
     },
   ];

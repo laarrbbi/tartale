@@ -75,6 +75,7 @@ export async function createBirthdayOrder(
     size: person.size,
     priceCents,
     deliveryCents: zone.deliveryCents,
+    cakeText: fillName(person.cakeText, person.recipientName)?.slice(0, ORDER_LIMITS.cakeText) ?? null,
     cardDesign: person.cardDesign,
     cardMessage: fillName(person.cardMessage, person.recipientName)?.slice(0, ORDER_LIMITS.cardMessage) ?? null,
     signOff: fillName(person.signOff, person.recipientName)?.slice(0, ORDER_LIMITS.signOff) ?? null,

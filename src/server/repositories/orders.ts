@@ -36,6 +36,9 @@ export interface Order {
   totalCents: number;
   paidCents: number;
   refundedCents: number;
+  /** On top of the cake: a printed photo (bytes in order_photos) and a short line. */
+  hasPhoto: boolean;
+  cakeText: string | null;
   cardDesign: CardDesign;
   hasDocument: boolean;
   cardMessage: string | null;
@@ -87,6 +90,8 @@ interface OrderRow {
   total_cents: number;
   paid_cents: number;
   refunded_cents: number;
+  has_photo: boolean;
+  cake_text: string | null;
   card_design: CardDesign;
   has_document: boolean;
   card_message: string | null;
@@ -121,8 +126,9 @@ interface OrderRow {
 }
 
 const COLUMNS = `id, public_id, source, status, payment_method, payment_status, occasion, bakery_id, zone_id,
-  cake_id, cake_name, size, price_cents, delivery_cents, total_cents, paid_cents, refunded_cents, card_design,
-  has_document, card_message, sign_off, anonymous, allergies, recipient_name, recipient_company, recipient_phone,
+  cake_id, cake_name, size, price_cents, delivery_cents, total_cents, paid_cents, refunded_cents, has_photo,
+  cake_text, card_design, has_document, card_message, sign_off, anonymous, allergies, recipient_name,
+  recipient_company, recipient_phone,
   address_kind, address, postal_code, city, delivery_notes, deliver_on, time_slot, sender_name, sender_phone,
   sender_email, sender_company, company_id, birthday_id, birthday_year, staff_note, stripe_session_id,
   stripe_payment_intent, paid_at, refunded_at, created_at, status_changed_at, erased_at`;
@@ -146,6 +152,8 @@ function toOrder(r: OrderRow): Order {
     totalCents: r.total_cents,
     paidCents: r.paid_cents,
     refundedCents: r.refunded_cents,
+    hasPhoto: r.has_photo,
+    cakeText: r.cake_text,
     cardDesign: r.card_design,
     hasDocument: r.has_document,
     cardMessage: r.card_message,
@@ -192,6 +200,7 @@ export interface NewOrder {
   size: CakeSize;
   priceCents: number;
   deliveryCents: number;
+  cakeText: string | null;
   cardDesign: CardDesign;
   cardMessage: string | null;
   signOff: string | null;
@@ -227,12 +236,12 @@ export async function insertOrder(input: NewOrder, db: Db = getDb()): Promise<Or
   const row = await one<OrderRow>(
     db,
     `insert into orders (public_id, source, payment_method, occasion, bakery_id, zone_id, cake_id, cake_name, size,
-        price_cents, delivery_cents, card_design, card_message, sign_off, anonymous, allergies, recipient_name,
-        recipient_company, recipient_phone, address_kind, address, postal_code, city, delivery_notes, deliver_on,
-        time_slot, sender_name, sender_phone, sender_email, sender_company, company_id, birthday_id, birthday_year, ip_hash,
-        staff_note)
+        price_cents, delivery_cents, cake_text, card_design, card_message, sign_off, anonymous, allergies,
+        recipient_name, recipient_company, recipient_phone, address_kind, address, postal_code, city, delivery_notes,
+        deliver_on, time_slot, sender_name, sender_phone, sender_email, sender_company, company_id, birthday_id,
+        birthday_year, ip_hash, staff_note)
      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23,
-             $24, $25::date, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
+             $24, $25, $26::date, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36)
      on conflict do nothing
      returning ${COLUMNS}`,
     [
@@ -247,6 +256,7 @@ export async function insertOrder(input: NewOrder, db: Db = getDb()): Promise<Or
       input.size,
       input.priceCents,
       input.deliveryCents,
+      input.cakeText,
       input.cardDesign,
       input.cardMessage,
       input.signOff,
@@ -507,6 +517,28 @@ export async function syncRefundedTotal(paymentIntent: string, refundedCents: nu
     [paymentIntent, refundedCents],
   );
   return row ? toOrder(row) : null;
+}
+
+// ---------------------------------------------------------------------------
+// The photo printed on the cake
+// ---------------------------------------------------------------------------
+
+export async function saveOrderPhoto(orderId: number, mime: string, bytes: Buffer, db: Db = getDb()): Promise<void> {
+  await db.query(
+    `insert into order_photos (order_id, mime, bytes) values ($1, $2, $3)
+     on conflict (order_id) do update set mime = excluded.mime, bytes = excluded.bytes, created_at = now()`,
+    [orderId, mime, bytes],
+  );
+  await db.query('update orders set has_photo = true where id = $1', [orderId]);
+}
+
+export async function getOrderPhoto(orderId: number): Promise<{ mime: string; bytes: Buffer } | null> {
+  const row = await one<{ mime: string; bytes: Buffer | Uint8Array }>(
+    getDb(),
+    'select mime, bytes from order_photos where order_id = $1',
+    [orderId],
+  );
+  return row ? { mime: row.mime, bytes: Buffer.from(row.bytes) } : null;
 }
 
 // ---------------------------------------------------------------------------

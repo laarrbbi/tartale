@@ -89,6 +89,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                         </span>
                         <span className="type-caption block truncate">
                           nº {o.id} · {SLOTS[o.timeSlot].hours} · {o.cakeName} {SIZES[o.size].label.toLowerCase()}
+                          {o.hasPhoto ? ' · con foto' : ''}
                           {o.hasDocument ? ' · con documento' : ''}
                           {o.postalCode ? ` · ${o.postalCode}` : ''}
                           {bakeries.length > 1 ? ` · ${bakeryName.get(o.bakeryId) ?? ''}` : ''}

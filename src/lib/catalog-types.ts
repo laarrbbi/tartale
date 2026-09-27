@@ -24,7 +24,7 @@ export interface PublicCake {
 
 export interface PublicMenu {
   city: string;
-  bakery: { id: number; name: string; sizeNotes: SizeNotes };
+  bakery: { id: number; name: string; printsPhotos: boolean; sizeNotes: SizeNotes };
   zones: PublicZone[];
   cakes: PublicCake[];
 }

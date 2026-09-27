@@ -4,9 +4,9 @@ import test, { after, afterEach, before, beforeEach } from 'node:test';
 import { addDays, madridToday, weekday } from '../src/lib/dates';
 import { env } from '../src/lib/env';
 import { findCake, listCakes } from '../src/server/repositories/catalog';
-import { eraseOrder, findOrderByPublicId, getOrderDocument } from '../src/server/repositories/orders';
+import { eraseOrder, findOrderByPublicId, getOrderDocument, getOrderPhoto } from '../src/server/repositories/orders';
 import { saveSettings, DEFAULT_SETTINGS } from '../src/server/repositories/settings';
-import { decodeDocument, documentFilename, placeOrder, retryPayment } from '../src/server/services/order-service';
+import { decodeDocument, decodePhoto, documentFilename, placeOrder, retryPayment } from '../src/server/services/order-service';
 import { orderInputSchema } from '../src/server/validation/schemas';
 
 import { installFakeStripe, type FakeStripe } from './fake-stripe';
@@ -39,6 +39,8 @@ async function form(overrides: Record<string, unknown> = {}) {
   return orderInputSchema.parse({
     cakeId: await lotusId(),
     size: 'mediana',
+    photo: null,
+    cakeText: '¿Un café esta semana?',
     allergies: '',
     cardDesign: 'mano',
     document: null,
@@ -165,19 +167,79 @@ test('rate limit: the ninth order from one connection in ten minutes is refused'
 const PDF = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(400, 32), Buffer.from('%%EOF')]);
 const asDataUrl = (bytes: Buffer, mime: string) => `data:${mime};base64,${bytes.toString('base64')}`;
 
-test('the card: its design is stored, and nothing is written on the cake', async () => {
-  const placed = await placeOrder(await form({ cardDesign: 'color' }), ip());
+const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(400, 7)]);
+
+test('the photo on the cake: only real image bytes are kept, and only where the bakery prints', async () => {
+  const placed = await placeOrder(await form({ photo: asDataUrl(JPEG, 'image/jpeg') }), ip());
+  assert.ok(placed.ok);
+  const order = await findOrderByPublicId(placed.publicId);
+  assert.equal(order?.hasPhoto, true);
+  assert.equal(order?.cakeText, '¿Un café esta semana?');
+  const photo = await getOrderPhoto(order!.id);
+  assert.equal(photo?.mime, 'image/jpeg');
+  assert.equal(photo?.bytes.length, JPEG.length);
+
+  // An HTML page dressed up as a PNG.
+  const html = Buffer.from(`<html><script>alert(1)</script>${' '.repeat(200)}</html>`);
+  assert.deepEqual(await placeOrder(await form({ photo: asDataUrl(html, 'image/png') }), ip()), {
+    ok: false,
+    reason: 'photo',
+    field: 'photo',
+  });
+  // Too big once decoded; not a data URL at all; a PNG and a WebP by their signatures.
+  assert.equal(decodePhoto(asDataUrl(Buffer.concat([JPEG, Buffer.alloc(1_000_000)]), 'image/jpeg')), null);
+  assert.equal(decodePhoto('https://evil.example/x.jpg'), null);
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(200)]);
+  assert.equal(decodePhoto(asDataUrl(png, 'image/png'))?.mime, 'image/png');
+  const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBP'), Buffer.alloc(200)]);
+  assert.equal(decodePhoto(asDataUrl(webp, 'image/webp'))?.mime, 'image/webp');
+
+  await sqlRun('update bakeries set prints_photos = false');
+  assert.deepEqual(await placeOrder(await form({ photo: asDataUrl(JPEG, 'image/jpeg') }), ip()), {
+    ok: false,
+    reason: 'no_photo',
+    field: 'photo',
+  });
+  // Without a photo, the line on top still goes.
+  const textOnly = await placeOrder(await form(), ip());
+  assert.ok(textOnly.ok);
+  assert.equal((await findOrderByPublicId(textOnly.publicId))?.hasPhoto, false);
+});
+
+test('the card: its design is stored with the order, next to what is printed on the cake', async () => {
+  const placed = await placeOrder(await form({ cardDesign: 'color', cakeText: '' }), ip());
   assert.ok(placed.ok);
   const order = await findOrderByPublicId(placed.publicId);
   assert.equal(order?.cardDesign, 'color');
+  assert.equal(order?.cakeText, null);
+  assert.equal(order?.hasPhoto, false);
   assert.equal(order?.hasDocument, false);
   assert.equal(orderInputSchema.safeParse({ ...(await form()), cardDesign: 'neon' }).success, false);
-  // What a client sends about the cake's top is simply not read.
-  const withText = orderInputSchema.parse({ ...(await form()), cakeText: 'hola', photo: 'data:image/png;base64,AAAA' });
-  assert.equal('cakeText' in withText || 'photo' in withText, false);
 });
 
-test('the document for the box: only a real PDF, JPEG or PNG, at most 3 MB, under a clean name', async () => {
+test('photo, line, card and document together: one order, one request, all of it erased at 90 days', async () => {
+  const placed = await placeOrder(
+    await form({ photo: asDataUrl(JPEG, 'image/jpeg'), document: { name: 'cv.pdf', data: asDataUrl(PDF, 'application/pdf') } }),
+    ip(),
+  );
+  assert.ok(placed.ok);
+  const order = (await findOrderByPublicId(placed.publicId))!;
+  assert.deepEqual([order.hasPhoto, order.hasDocument, order.cardDesign], [true, true, 'mano']);
+  // Stripe's line says what is on the cake and what is in the box.
+  const checkout = stripe.requests.filter((r) => r.path === '/checkout/sessions').at(-1)!;
+  assert.equal(
+    checkout.params.get('line_items[0][price_data][product_data][description]'),
+    'Con tu foto y tu frase encima; tu tarjeta y tu documento impreso en la caja',
+  );
+
+  assert.equal(await eraseOrder(order.id), true);
+  const erased = (await findOrderByPublicId(placed.publicId))!;
+  assert.deepEqual([erased.hasPhoto, erased.hasDocument, erased.cakeText, erased.cardMessage], [false, false, null, null]);
+  assert.equal(await getOrderPhoto(order.id), null);
+  assert.equal(await getOrderDocument(order.id), null);
+});
+
+test('the document for the box: only a real PDF, JPEG or PNG, at most 2 MB, under a clean name', async () => {
   const placed = await placeOrder(await form({ document: { name: 'C:\\Users\\ana\\CV final.PDF', data: asDataUrl(PDF, 'application/pdf') } }), ip());
   assert.ok(placed.ok);
   const order = await findOrderByPublicId(placed.publicId);
@@ -195,7 +257,7 @@ test('the document for the box: only a real PDF, JPEG or PNG, at most 3 MB, unde
     field: 'document',
   });
   // Too big once decoded; not a data URL; a JPEG and a PNG by their signatures.
-  assert.equal(decodeDocument({ name: 'big.pdf', data: asDataUrl(Buffer.concat([PDF, Buffer.alloc(3_000_000)]), 'application/pdf') }), null);
+  assert.equal(decodeDocument({ name: 'big.pdf', data: asDataUrl(Buffer.concat([PDF, Buffer.alloc(2_000_000)]), 'application/pdf') }), null);
   assert.equal(decodeDocument({ name: 'x.pdf', data: 'https://evil.example/x.pdf' }), null);
   const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(400, 7)]);
   assert.equal(decodeDocument({ name: 'foto.jpeg', data: asDataUrl(jpeg, 'image/jpeg') })?.filename, 'foto.jpg');
@@ -212,11 +274,10 @@ test('the document for the box: only a real PDF, JPEG or PNG, at most 3 MB, unde
 
 test('when Stripe cannot open the payment page, no order is left behind', async () => {
   stripe.failWith = 503;
-  assert.deepEqual(await placeOrder(await form({ document: { name: 'cv.pdf', data: asDataUrl(PDF, 'application/pdf') } }), ip()), {
-    ok: false,
-    reason: 'payment_unavailable',
-  });
+  const both = { photo: asDataUrl(JPEG, 'image/jpeg'), document: { name: 'cv.pdf', data: asDataUrl(PDF, 'application/pdf') } };
+  assert.deepEqual(await placeOrder(await form(both), ip()), { ok: false, reason: 'payment_unavailable' });
   assert.equal(await countRows('orders'), 0);
+  assert.equal(await countRows('order_photos'), 0);
   assert.equal(await countRows('order_documents'), 0);
 });
 
@@ -249,6 +310,7 @@ test('the form: required fields, lengths and a postcode, in Spanish', () => {
   for (const f of ['cakeId', 'size', 'occasion', 'postalCode', 'recipientName', 'address', 'deliverOn', 'senderName', 'senderPhone', 'senderEmail', 'recipientConsent']) {
     assert.ok(fields.has(f), `expected an error on ${f}`);
   }
-  const long = orderInputSchema.safeParse({ cardMessage: 'x'.repeat(301) });
+  const long = orderInputSchema.safeParse({ cardMessage: 'x'.repeat(301), cakeText: 'x'.repeat(61) });
   assert.ok(!long.success && long.error.issues.some((i) => i.path[0] === 'cardMessage'));
+  assert.ok(!long.success && long.error.issues.some((i) => i.path[0] === 'cakeText'));
 });

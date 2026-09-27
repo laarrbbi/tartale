@@ -51,6 +51,7 @@ async function aPerson(companyId: number, inDays: number, overrides: Partial<Bir
       deliveryNotes: 'Portero automático 2B',
       cakeId: await cakeId('Lotus'),
       size: 'mediana',
+      cakeText: '¡Feliz cumple, {nombre}!',
       cardDesign: 'mano',
       cardMessage: 'Muchas felicidades, {nombre}.',
       signOff: 'Tu equipo de Acme',
@@ -108,6 +109,7 @@ test('a birthday a week away becomes a "Nuevo" order, priced from the menu, conf
   assert.equal(order.birthdayYear, Number(addDays(TODAY, 7).slice(0, 4)));
   assert.equal(order.priceCents, 4600); // Lotus, mediana, from the seed menu
   assert.equal(order.deliveryCents, 1000);
+  assert.equal(order.cakeText, '¡Feliz cumple, Lucía!');
   assert.equal(order.cardDesign, 'mano');
   assert.equal(order.cardMessage, 'Muchas felicidades, Lucía.');
   assert.equal(order.recipientCompany, 'Acme Levante');

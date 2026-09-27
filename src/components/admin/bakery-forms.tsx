@@ -17,6 +17,7 @@ export interface BakeryFormData {
   phone: string | null;
   whatsapp: string | null;
   email: string | null;
+  printsPhotos: boolean;
   active: boolean;
   sizeNotes: Partial<Record<CakeSize, string>>;
   notes: string | null;
@@ -98,6 +99,13 @@ export function BakeryDetailsForm({ bakery, csrfToken }: { bakery: BakeryFormDat
           </div>
 
           <div className="divide-y divide-line rounded-field bg-surface-sunken/50 px-4">
+            <Toggle
+              id="bakery-prints"
+              name="printsPhotos"
+              label="Tartas con foto impresa"
+              description="Apagado, el formulario no deja subir foto y la tarta lleva solo la frase."
+              defaultChecked={bakery.printsPhotos}
+            />
             <Toggle
               id="bakery-active"
               name="active"

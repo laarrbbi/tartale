@@ -44,6 +44,7 @@ export default async function BakeryPage({ params }: { params: Promise<{ id: str
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <h1 className="type-display mr-1">{bakery.name}</h1>
           <Badge tone={bakery.active ? 'positive' : 'neutral'}>{bakery.active ? 'Activa' : 'Pausada'}</Badge>
+          {bakery.printsPhotos ? <Badge tone="brand">Foto impresa</Badge> : <Badge>Sin foto</Badge>}
         </div>
         <p className="type-body mt-1 text-ink-muted">
           {bakery.city}
@@ -75,6 +76,7 @@ export default async function BakeryPage({ params }: { params: Promise<{ id: str
                         </span>
                         <span className="type-caption block truncate">
                           nº {o.id} · {o.cakeName} {SIZES[o.size].label.toLowerCase()}
+                          {o.hasPhoto ? ' · con foto' : ''}
                           {o.hasDocument ? ' · con documento' : ''}
                         </span>
                       </span>
@@ -233,6 +235,7 @@ export default async function BakeryPage({ params }: { params: Promise<{ id: str
                 phone: bakery.phone,
                 whatsapp: bakery.whatsapp,
                 email: bakery.email,
+                printsPhotos: bakery.printsPhotos,
                 active: bakery.active,
                 sizeNotes: bakery.sizeNotes,
                 notes: bakery.notes,

@@ -88,6 +88,7 @@ export const ORDER_SOURCES = {
 export type OrderSource = keyof typeof ORDER_SOURCES;
 
 export const ORDER_LIMITS = {
+  cakeText: 60,
   cardMessage: 300,
   signOff: 60,
   notes: 300,
@@ -98,6 +99,28 @@ export const ORDER_LIMITS = {
   phone: 24,
 } as const;
 
+/**
+ * The photo printed on top of the cake (a logo, a team photo, a meme):
+ * resized in the browser to a JPEG of at most 1600 px a side, checked by its
+ * first bytes on the server. It travels in the same request as the document
+ * for the box, and both together stay under the 4.5 MB a request can carry.
+ */
+export const ORDER_PHOTO = {
+  maxBytes: 1_000_000,
+  maxSide: 1600,
+  types: ['image/jpeg', 'image/png', 'image/webp'] as const,
+} as const;
+
+/** Lines that work on a cake: short, and a reason to answer. Tapping one fills the field. */
+export const CAKE_TEXT_IDEAS = [
+  '¿Un café esta semana?',
+  'Mejor que otro email',
+  'Enhorabuena por la ronda',
+  'Hablemos',
+  '¡Bienvenido/a al equipo!',
+  'Gracias por todo',
+  '¡Feliz cumple!',
+] as const;
 
 /** Money is integer cents everywhere; this is the only way it becomes text. */
 export function formatEuros(cents: number): string {

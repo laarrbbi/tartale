@@ -22,7 +22,7 @@ export async function publicMenus(): Promise<PublicMenu[]> {
       if (menus.some((m) => m.city === city)) continue;
       menus.push({
         city,
-        bakery: { id: bakery.id, name: bakery.name, sizeNotes: bakery.sizeNotes },
+        bakery: { id: bakery.id, name: bakery.name, printsPhotos: bakery.printsPhotos, sizeNotes: bakery.sizeNotes },
         zones: bakeryZones
           .filter((z) => z.city === city)
           .map((z) => ({ id: z.id, name: z.name, city: z.city, postalCodes: z.postalCodes, deliveryCents: z.deliveryCents })),

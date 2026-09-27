@@ -114,6 +114,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
                         deliveryNotes: person.deliveryNotes,
                         cakeId: person.cakeId,
                         size: person.size,
+                        cakeText: person.cakeText,
                         cardDesign: person.cardDesign,
                         cardMessage: person.cardMessage,
                         signOff: person.signOff,

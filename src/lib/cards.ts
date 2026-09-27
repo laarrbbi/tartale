@@ -1,7 +1,7 @@
 /**
- * The card that goes with the cake. Nothing is printed on the cake itself
- * (yet): the card is where the sender's words go, in one of three designs,
- * printed at A6 and tucked into the box. Pure data, safe in the browser.
+ * The card that goes in the box with the cake: the sender's longer words, in
+ * one of three designs, printed at A6. (The cake itself carries the photo and
+ * a short line, printed on top.) Pure data, safe in the browser.
  */
 export const CARD_DESIGNS = {
   clasica: { label: 'Clásica', hint: 'Crema, letra de imprenta' },
@@ -28,9 +28,11 @@ export function messageSize(design: CardDesign, message: string): number {
 /**
  * The document the sender can add — a CV, a proposal, a one-pager — printed
  * and put in the box with the cake. Checked by its first bytes on the server.
+ * 2 MB, so that with the cake's photo (1 MB at most) the order still fits in
+ * one request.
  */
 export const ORDER_DOCUMENT = {
-  maxBytes: 3_000_000,
+  maxBytes: 2_000_000,
   types: ['application/pdf', 'image/jpeg', 'image/png'] as const,
   accept: 'application/pdf,image/jpeg,image/png',
 } as const;

@@ -41,6 +41,7 @@ export interface BirthdayFormData {
   deliveryNotes: string | null;
   cakeId: number;
   size: CakeSize;
+  cakeText: string | null;
   cardDesign: CardDesign;
   cardMessage: string | null;
   signOff: string | null;
@@ -183,7 +184,15 @@ function CakeAndWords({
           : 'No hay tartas en la carta.'}
         {cakes.length > 4 ? ' · …' : ''}
       </p>
-      <Field label="Diseño de la tarjeta" htmlFor={`${prefix}-design`} error={errors?.cardDesign} hint="Nada va escrito en la tarta: el mensaje va en la tarjeta.">
+      <Field
+        label="Encima de la tarta"
+        htmlFor={`${prefix}-text`}
+        error={errors?.cakeText}
+        hint="Una frase corta, impresa en la tarta. {nombre} se cambia por el nombre de pila de cada persona."
+      >
+        <Input id={`${prefix}-text`} name="cakeText" defaultValue={values.cakeText ?? ''} maxLength={ORDER_LIMITS.cakeText} />
+      </Field>
+      <Field label="Diseño de la tarjeta" htmlFor={`${prefix}-design`} error={errors?.cardDesign}>
         <Select id={`${prefix}-design`} name="cardDesign" defaultValue={values.cardDesign ?? 'clasica'}>
           {CARD_DESIGN_IDS.map((design) => (
             <option key={design} value={design}>
@@ -265,7 +274,7 @@ export function ImportBirthdaysForm({
             prefix="import"
             cakes={cakes}
             errors={state.fieldErrors}
-            values={{ cardDesign: 'clasica', cardMessage: '¡Feliz cumpleaños, {nombre}!', signOff: companyName }}
+            values={{ cakeText: '¡Feliz cumple, {nombre}!', cardDesign: 'clasica', cardMessage: '¡Feliz cumpleaños, {nombre}!', signOff: companyName }}
           />
           <SubmitButton pendingLabel="Añadiendo…" className="self-start">
             Añadir a la lista

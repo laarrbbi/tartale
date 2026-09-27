@@ -25,8 +25,8 @@ export default function PrivacyPage() {
       <h2>Si encargas una tarta</h2>
       <p>
         Tratamos tu nombre, teléfono, email y, si nos la das, tu empresa, para gestionar el pedido, cobrarlo y hablar contigo
-        sobre la entrega. Si añades un documento para la caja (un CV, por ejemplo), lo guardamos solo para imprimirlo y lo
-        borramos con el resto del pedido. La base es el contrato que haces con nosotros (art. 6.1.b RGPD).
+        sobre la entrega. Si subes una foto para la tarta o un documento para la caja (un CV, por ejemplo), los guardamos solo
+        para imprimirlos y los borramos con el resto del pedido. La base es el contrato que haces con nosotros (art. 6.1.b RGPD).
       </p>
       <p>
         El pago lo gestiona Stripe en su propia página segura: nosotros no vemos ni guardamos los datos de tu tarjeta.
@@ -35,7 +35,7 @@ export default function PrivacyPage() {
       <h2>Si recibes una tarta</h2>
       <p>
         Quien te la envía nos ha dado tu nombre, la dirección de entrega, tu empresa y, si quiso, un teléfono, junto con el
-        mensaje de la tarjeta. Los usamos <strong>solo para prepararla y entregártela</strong>: nunca te
+        mensaje de la tarjeta y la foto de la tarta. Los usamos <strong>solo para prepararla y entregártela</strong>: nunca te
         escribimos, no te mandamos publicidad y no los usamos para nada más. La base es el interés legítimo de quien te la
         envía, y el nuestro, en que la tarta llegue (art. 6.1.f RGPD).
       </p>
@@ -57,8 +57,8 @@ export default function PrivacyPage() {
       <h2>Cuánto tiempo</h2>
       <ul>
         <li>
-          {RETENTION_DAYS.orders} días después de la entrega borramos los nombres, direcciones, teléfonos, emails, mensajes y
-          el documento del pedido. Conservamos solo qué se vendió, cuándo y por cuánto, porque la ley nos obliga a guardar la
+          {RETENTION_DAYS.orders} días después de la entrega borramos los nombres, direcciones, teléfonos, emails, mensajes, la
+          foto y el documento del pedido. Conservamos solo qué se vendió, cuándo y por cuánto, porque la ley nos obliga a guardar la
           contabilidad.
         </li>
         <li>Un pedido que no se llega a pagar se borra entero a los {RETENTION_DAYS.unpaidOrders} días.</li>
