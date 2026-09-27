@@ -1,8 +1,9 @@
 import 'server-only';
 
+import { ORDER_DOCUMENT } from '@/lib/cards';
 import { CONSENT_TEXT } from '@/lib/constants';
 import { checkDeliveryDay, type DayProblem } from '@/lib/dates';
-import { ORDER_PHOTO, priceFor, signOffFor } from '@/lib/orders';
+import { priceFor, signOffFor } from '@/lib/orders';
 import { getDb } from '@/server/db/pg';
 import { findBakery, findCake, zoneForPostcode } from '@/server/repositories/catalog';
 import {
@@ -10,8 +11,9 @@ import {
   findOrderByPublicId,
   insertOrder,
   recordMarketingConsent,
-  saveOrderPhoto,
+  saveOrderDocument,
   type Order,
+  type OrderDocument,
 } from '@/server/repositories/orders';
 import { getSettings } from '@/server/repositories/settings';
 import { stripeConfigured } from '@/server/payments/stripe';
@@ -29,25 +31,35 @@ export function newPublicId(): string {
   return randomToken(16);
 }
 
-const SIGNATURES: Array<{ mime: (typeof ORDER_PHOTO.types)[number]; test: (b: Buffer) => boolean }> = [
-  { mime: 'image/jpeg', test: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
-  { mime: 'image/png', test: (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
-  { mime: 'image/webp', test: (b) => b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP' },
+const SIGNATURES: Array<{ mime: (typeof ORDER_DOCUMENT.types)[number]; ext: string; test: (b: Buffer) => boolean }> = [
+  { mime: 'application/pdf', ext: 'pdf', test: (b) => b.subarray(0, 5).toString('latin1') === '%PDF-' },
+  { mime: 'image/jpeg', ext: 'jpg', test: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  { mime: 'image/png', ext: 'png', test: (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
 ];
 
+const UNSAFE_IN_NAMES = /[\u0000-\u001f\u007f"<>:|?*\\/]/g;
+
+/** "C:\\Users\\ana\\CV final.PDF" → "CV final.pdf": no path, no control characters, our extension. */
+export function documentFilename(name: string, ext: string): string {
+  const base = name.replace(/^.*[\\/]/, '').normalize('NFC').replace(UNSAFE_IN_NAMES, '').replace(/\s+/g, ' ').trim();
+  const stem = base.replace(/\.[A-Za-z0-9]{1,5}$/, '').trim().slice(0, 100) || 'documento';
+  return `${stem}.${ext}`;
+}
+
 /**
- * The photo for the cake, from the data URL the browser sent. Its type is
- * read from the file's first bytes, not from what the browser claimed: only a
- * real JPEG, PNG or WebP of at most 1.5 MB is kept, and it is served back
- * with that type — so an HTML page renamed .jpg is refused, not stored.
+ * The document to print and put in the box (a CV, a proposal…), from the data
+ * URL the browser sent. Its type is read from its first bytes, not from what
+ * the browser claimed: only a real PDF, JPEG or PNG of at most 3 MB is kept,
+ * under a cleaned-up name and our own extension.
  */
-export function decodePhoto(dataUrl: string): { mime: string; bytes: Buffer } | null {
-  const match = /^data:image\/(?:jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl);
+export function decodeDocument(input: { name: string; data: string }): OrderDocument | null {
+  const match = /^data:[\w.+-]+\/[\w.+-]+;base64,([A-Za-z0-9+/]+={0,2})$/.exec(input.data);
   if (!match) return null;
   const bytes = Buffer.from(match[1]!, 'base64');
-  if (bytes.length < 100 || bytes.length > ORDER_PHOTO.maxBytes) return null;
+  if (bytes.length < 64 || bytes.length > ORDER_DOCUMENT.maxBytes) return null;
   const kind = SIGNATURES.find((s) => s.test(bytes));
-  return kind ? { mime: kind.mime, bytes } : null;
+  if (!kind) return null;
+  return { mime: kind.mime, filename: documentFilename(input.name, kind.ext), sizeBytes: bytes.length, bytes };
 }
 
 export type PlaceOrderFailure =
@@ -58,8 +70,7 @@ export type PlaceOrderFailure =
   | 'zone'
   | 'cake'
   | 'size'
-  | 'no_photo'
-  | 'photo'
+  | 'document'
   | DayProblem
   | 'payment_unavailable';
 
@@ -96,9 +107,8 @@ export async function placeOrder(input: OrderInput, ip: string | null): Promise<
 
   const bakery = await findBakery(zone.bakeryId);
   if (!bakery?.active) return { ok: false, reason: 'zone', field: 'postalCode' };
-  if (input.photo && !bakery.printsPhotos) return { ok: false, reason: 'no_photo', field: 'photo' };
-  const photo = input.photo ? decodePhoto(input.photo) : null;
-  if (input.photo && !photo) return { ok: false, reason: 'photo', field: 'photo' };
+  const document = input.document ? decodeDocument(input.document) : null;
+  if (input.document && !document) return { ok: false, reason: 'document', field: 'document' };
 
   const order = await getDb().transaction(async (tx) => {
     const created = await insertOrder(
@@ -114,7 +124,7 @@ export async function placeOrder(input: OrderInput, ip: string | null): Promise<
         size: input.size,
         priceCents,
         deliveryCents: zone.deliveryCents,
-        cakeText: input.cakeText,
+        cardDesign: input.cardDesign,
         cardMessage: input.cardMessage,
         signOff: signOffFor({ anonymous: input.anonymous, signOff: input.signOff, senderName: input.senderName }),
         anonymous: input.anonymous,
@@ -140,14 +150,14 @@ export async function placeOrder(input: OrderInput, ip: string | null): Promise<
       },
       tx,
     );
-    if (created && photo) await saveOrderPhoto(created.id, photo.mime, photo.bytes, tx);
+    if (created && document) await saveOrderDocument(created.id, document, tx);
     return created;
   });
   if (!order) return { ok: false, reason: 'rejected' };
 
   let paymentUrl: string;
   try {
-    paymentUrl = (await openCheckout({ ...order, hasPhoto: photo !== null })).url;
+    paymentUrl = (await openCheckout({ ...order, hasDocument: document !== null })).url;
   } catch (error) {
     console.error('[orders] could not open the payment page', error);
     await deleteOrder(order.id);

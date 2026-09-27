@@ -45,3 +45,9 @@ export function actorLabel(actorEmail: string | null): string {
   if (actorEmail === 'stripe') return 'Stripe';
   return actorEmail ?? 'sistema';
 }
+
+/** "240 KB", "1,2 MB": for file sizes shown to people. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1_000_000) return `${Math.max(1, Math.round(bytes / 1000))} KB`;
+  return `${(bytes / 1_000_000).toFixed(1).replace(/\.0$/, '').replace('.', ',')} MB`;
+}

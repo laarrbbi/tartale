@@ -1,5 +1,6 @@
 import 'server-only';
 
+import type { CardDesign } from '@/lib/cards';
 import type {
   AddressKind,
   CakeSize,
@@ -35,8 +36,8 @@ export interface Order {
   totalCents: number;
   paidCents: number;
   refundedCents: number;
-  hasPhoto: boolean;
-  cakeText: string | null;
+  cardDesign: CardDesign;
+  hasDocument: boolean;
   cardMessage: string | null;
   signOff: string | null;
   anonymous: boolean;
@@ -86,8 +87,8 @@ interface OrderRow {
   total_cents: number;
   paid_cents: number;
   refunded_cents: number;
-  has_photo: boolean;
-  cake_text: string | null;
+  card_design: CardDesign;
+  has_document: boolean;
   card_message: string | null;
   sign_off: string | null;
   anonymous: boolean;
@@ -120,8 +121,8 @@ interface OrderRow {
 }
 
 const COLUMNS = `id, public_id, source, status, payment_method, payment_status, occasion, bakery_id, zone_id,
-  cake_id, cake_name, size, price_cents, delivery_cents, total_cents, paid_cents, refunded_cents, has_photo,
-  cake_text, card_message, sign_off, anonymous, allergies, recipient_name, recipient_company, recipient_phone,
+  cake_id, cake_name, size, price_cents, delivery_cents, total_cents, paid_cents, refunded_cents, card_design,
+  has_document, card_message, sign_off, anonymous, allergies, recipient_name, recipient_company, recipient_phone,
   address_kind, address, postal_code, city, delivery_notes, deliver_on, time_slot, sender_name, sender_phone,
   sender_email, sender_company, company_id, birthday_id, birthday_year, staff_note, stripe_session_id,
   stripe_payment_intent, paid_at, refunded_at, created_at, status_changed_at, erased_at`;
@@ -145,8 +146,8 @@ function toOrder(r: OrderRow): Order {
     totalCents: r.total_cents,
     paidCents: r.paid_cents,
     refundedCents: r.refunded_cents,
-    hasPhoto: r.has_photo,
-    cakeText: r.cake_text,
+    cardDesign: r.card_design,
+    hasDocument: r.has_document,
     cardMessage: r.card_message,
     signOff: r.sign_off,
     anonymous: r.anonymous,
@@ -191,7 +192,7 @@ export interface NewOrder {
   size: CakeSize;
   priceCents: number;
   deliveryCents: number;
-  cakeText: string | null;
+  cardDesign: CardDesign;
   cardMessage: string | null;
   signOff: string | null;
   anonymous: boolean;
@@ -226,7 +227,7 @@ export async function insertOrder(input: NewOrder, db: Db = getDb()): Promise<Or
   const row = await one<OrderRow>(
     db,
     `insert into orders (public_id, source, payment_method, occasion, bakery_id, zone_id, cake_id, cake_name, size,
-        price_cents, delivery_cents, cake_text, card_message, sign_off, anonymous, allergies, recipient_name,
+        price_cents, delivery_cents, card_design, card_message, sign_off, anonymous, allergies, recipient_name,
         recipient_company, recipient_phone, address_kind, address, postal_code, city, delivery_notes, deliver_on,
         time_slot, sender_name, sender_phone, sender_email, sender_company, company_id, birthday_id, birthday_year, ip_hash,
         staff_note)
@@ -246,7 +247,7 @@ export async function insertOrder(input: NewOrder, db: Db = getDb()): Promise<Or
       input.size,
       input.priceCents,
       input.deliveryCents,
-      input.cakeText,
+      input.cardDesign,
       input.cardMessage,
       input.signOff,
       input.anonymous,
@@ -509,25 +510,44 @@ export async function syncRefundedTotal(paymentIntent: string, refundedCents: nu
 }
 
 // ---------------------------------------------------------------------------
-// The photo
+// The document to print and put in the box
 // ---------------------------------------------------------------------------
 
-export async function saveOrderPhoto(orderId: number, mime: string, bytes: Buffer, db: Db = getDb()): Promise<void> {
-  await db.query(
-    `insert into order_photos (order_id, mime, bytes) values ($1, $2, $3)
-     on conflict (order_id) do update set mime = excluded.mime, bytes = excluded.bytes, created_at = now()`,
-    [orderId, mime, bytes],
-  );
-  await db.query('update orders set has_photo = true where id = $1', [orderId]);
+export interface OrderDocument {
+  mime: string;
+  filename: string;
+  sizeBytes: number;
+  bytes: Buffer;
 }
 
-export async function getOrderPhoto(orderId: number): Promise<{ mime: string; bytes: Buffer } | null> {
-  const row = await one<{ mime: string; bytes: Buffer | Uint8Array }>(
+export async function saveOrderDocument(orderId: number, doc: OrderDocument, db: Db = getDb()): Promise<void> {
+  await db.query(
+    `insert into order_documents (order_id, mime, filename, size_bytes, bytes) values ($1, $2, $3, $4, $5)
+     on conflict (order_id) do update
+        set mime = excluded.mime, filename = excluded.filename, size_bytes = excluded.size_bytes,
+            bytes = excluded.bytes, created_at = now()`,
+    [orderId, doc.mime, doc.filename, doc.sizeBytes, doc.bytes],
+  );
+  await db.query('update orders set has_document = true where id = $1', [orderId]);
+}
+
+/** Name and size only, for showing it without reading the bytes. */
+export async function getOrderDocumentInfo(orderId: number): Promise<{ filename: string; sizeBytes: number; mime: string } | null> {
+  const row = await one<{ filename: string; size_bytes: number; mime: string }>(
     getDb(),
-    'select mime, bytes from order_photos where order_id = $1',
+    'select filename, size_bytes, mime from order_documents where order_id = $1',
     [orderId],
   );
-  return row ? { mime: row.mime, bytes: Buffer.from(row.bytes) } : null;
+  return row ? { filename: row.filename, sizeBytes: row.size_bytes, mime: row.mime } : null;
+}
+
+export async function getOrderDocument(orderId: number): Promise<OrderDocument | null> {
+  const row = await one<{ mime: string; filename: string; size_bytes: number; bytes: Buffer | Uint8Array }>(
+    getDb(),
+    'select mime, filename, size_bytes, bytes from order_documents where order_id = $1',
+    [orderId],
+  );
+  return row ? { mime: row.mime, filename: row.filename, sizeBytes: row.size_bytes, bytes: Buffer.from(row.bytes) } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -538,12 +558,14 @@ export async function getOrderPhoto(orderId: number): Promise<{ mime: string; by
 export async function eraseOrder(id: number): Promise<boolean> {
   return getDb().transaction(async (tx) => {
     await tx.query('delete from order_photos where order_id = $1', [id]);
+    await tx.query('delete from order_documents where order_id = $1', [id]);
     const { rowCount } = await tx.query(
       `update orders
           set recipient_name = null, recipient_company = null, recipient_phone = null, address = null,
               postal_code = null, delivery_notes = null, allergies = null, cake_text = null, card_message = null,
               sign_off = null, sender_name = null, sender_phone = null, sender_email = null, sender_company = null,
-              staff_note = null, ip_hash = null, has_photo = false, erased_at = now(), updated_at = now()
+              staff_note = null, ip_hash = null, has_photo = false, has_document = false, erased_at = now(),
+              updated_at = now()
         where id = $1 and erased_at is null`,
       [id],
     );

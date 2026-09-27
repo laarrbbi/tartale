@@ -8,9 +8,10 @@ import { env } from '@/lib/env';
 import './globals.css';
 
 /**
- * Two faces, shipped with the app (SIL Open Font License, see ./fonts) so a
+ * The faces, shipped with the app (SIL Open Font License, see ./fonts) so a
  * build never depends on a font service and the page makes no third-party
- * request: Fraunces for headlines, DM Sans for reading.
+ * request: Fraunces for headlines, DM Sans for reading, and Caveat for the
+ * handwritten card design.
  */
 const sans = localFont({
   src: './fonts/dm-sans-latin-wght.woff2',
@@ -28,6 +29,15 @@ const display = localFont({
   display: 'swap',
 });
 
+/** Only the "A mano" card uses it: declared everywhere, fetched only where it is drawn. */
+const hand = localFont({
+  src: './fonts/caveat-latin-wght.woff2',
+  weight: '400 700',
+  variable: '--font-caveat',
+  display: 'swap',
+  preload: false,
+});
+
 /**
  * Every page carries a per-request CSP nonce (src/proxy.ts), which only a page
  * rendered per request can use: a prerendered page's scripts would have no
@@ -42,14 +52,14 @@ export const metadata: Metadata = {
     template: `%s · ${BRAND.name}`,
   },
   description:
-    'Envía una tarta con tu foto y tu mensaje a la oficina de un cliente, un inversor, un reclutador o alguien de tu equipo. En Alicante.',
+    'Envía una tarta de pastelería con una tarjeta escrita por ti —y, si quieres, tu CV o tu propuesta impresos— a la oficina de un cliente, un inversor, un reclutador o alguien de tu equipo. En Alicante.',
   applicationName: BRAND.name,
   openGraph: {
     type: 'website',
     locale: 'es_ES',
     siteName: BRAND.name,
     title: BRAND.tagline,
-    description: 'Una tarta con tu foto y tu mensaje, entregada en su oficina.',
+    description: 'Una tarta de pastelería y tu tarjeta, entregadas en su oficina.',
   },
 };
 
@@ -67,7 +77,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   await headers();
 
   return (
-    <html lang="es" className={`${sans.variable} ${display.variable}`}>
+    <html lang="es" className={`${sans.variable} ${display.variable} ${hand.variable}`}>
       <body className="min-h-dvh antialiased">
         <a
           href="#main"

@@ -11,7 +11,7 @@ export function SiteFooter() {
         <div>
           <Logo inverse />
           <p className="mt-3 max-w-sm text-[0.9375rem] text-pretty text-[#e8d8c6]">
-            {BRAND.tagline} Tartas con tu foto y tu mensaje, entregadas en su oficina.
+            {BRAND.tagline} Tartas de pastelería con tu tarjeta, entregadas en su oficina.
           </p>
         </div>
         <nav aria-label="Enlaces" className="grid grid-cols-2 gap-2 text-[0.9375rem] text-[#e8d8c6]">

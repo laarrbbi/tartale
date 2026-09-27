@@ -43,6 +43,18 @@ test('the migrations, applied in order, build exactly supabase/schema.sql', asyn
   await fromMigrations.close();
 });
 
+test('the panel’s updates, applied to a database built by the first migration, give exactly schema.sql', async () => {
+  const fromSchema = await PGlite.create();
+  await fromSchema.exec(SCHEMA_SQL);
+  const updated = await PGlite.create();
+  const first = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()[0]!;
+  await updated.exec(fs.readFileSync(path.join(MIGRATIONS_DIR, first), 'utf8'));
+  for (const update of UPDATES) for (const statement of update.statements) await updated.exec(statement);
+  assert.deepEqual(await catalog(updated), await catalog(fromSchema));
+  await fromSchema.close();
+  await updated.close();
+});
+
 test('every panel database update has a migration file, and none is pending on the schema', async () => {
   const files = fs.readdirSync(MIGRATIONS_DIR);
   for (const update of UPDATES) {

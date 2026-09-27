@@ -33,16 +33,16 @@ export default function LegalNoticePage() {
 
       <h2>Qué es esta web</h2>
       <p>
-        {BRAND.name} vende tartas personalizadas con una foto y un mensaje, que prepara y entrega una pastelería asociada de
-        la ciudad de destino. Las condiciones de compra están en <a href="/condiciones">Condiciones</a> y el tratamiento de
+        {BRAND.name} vende tartas de pastelería con una tarjeta escrita por quien las envía, que prepara y entrega una
+        pastelería asociada de la ciudad de destino. Las condiciones de compra están en <a href="/condiciones">Condiciones</a> y el tratamiento de
         datos en <a href="/privacidad">Privacidad</a>.
       </p>
 
       <h2>Propiedad intelectual</h2>
       <p>
         Los textos, el diseño y la marca de esta web pertenecen a su titular o se usan con permiso. Las fotos de las tartas
-        pertenecen a las pastelerías que las hacen. Las fotos que sube cada cliente siguen siendo suyas: solo las usamos para
-        imprimir su tarta.
+        pertenecen a las pastelerías que las hacen. Lo que escribe y sube cada cliente sigue siendo suyo: solo lo usamos para
+        imprimir su tarjeta y su documento.
       </p>
 
       <h2>Ley aplicable</h2>

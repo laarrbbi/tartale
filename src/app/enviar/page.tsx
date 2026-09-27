@@ -11,7 +11,7 @@ import { publicMenus } from '@/server/services/catalog-service';
 
 export const metadata: Metadata = {
   title: 'Enviar una tarta',
-  description: 'Diseña la tarta con tu foto y tu frase, dinos a quién va y cuándo, y paga con tarjeta.',
+  description: 'Elige la tarta, escribe la tarjeta y, si quieres, añade tu CV o tu propuesta impresos. Dinos a quién va y cuándo.',
 };
 
 /**
@@ -32,9 +32,10 @@ export default async function SendPage() {
       <SiteHeader cta={false} />
       <main id="main" className="mx-auto w-full max-w-5xl px-5 pb-20 pt-8 md:pt-12">
         <header className="mb-8 max-w-2xl">
-          <p className="type-eyebrow">Enviar una tarta{menu ? ` · ${menu.city}` : ''}</p>
-          <h1 className="type-display mt-3 text-balance">Diséñala en tres pasos</h1>
-          <p className="type-lead mt-3 text-pretty">La tarta, a quién va y tus datos. Pagas al final, con tarjeta.</p>
+          <h1 className="type-display text-balance">Envía una tarta{menu ? ` en ${menu.city}` : ''}</h1>
+          <p className="type-lead mt-3 text-pretty">
+            La tarta y la tarjeta, a quién va y cuándo, y tus datos. Pagas al final, con tarjeta.
+          </p>
         </header>
 
         {!menu || !settings.ordersEnabled ? (

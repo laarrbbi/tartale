@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { CakePreview } from '@/components/cake/cake-preview';
+import { CardPreview } from '@/components/card/card-preview';
 import { CopyLinkButton, PayNowButton } from '@/components/order/tracking-actions';
 import { SiteFooter } from '@/components/site/site-footer';
 import { SiteHeader } from '@/components/site/site-header';
@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/cn';
 import { RETENTION_DAYS } from '@/lib/constants';
 import { longDate } from '@/lib/dates';
-import { OCCASIONS, SIZES, SLOTS, STATUSES, STATUS_FLOW, formatEuros } from '@/lib/orders';
+import { SIZES, SLOTS, STATUSES, STATUS_FLOW, formatEuros } from '@/lib/orders';
 import { whatsappLink } from '@/lib/whatsapp';
 import { isPublicId } from '@/server/http/body';
+import { getOrderDocumentInfo } from '@/server/repositories/orders';
 import { getSettings } from '@/server/repositories/settings';
 import { hashIp } from '@/server/security/hash';
 import { ANONYMOUS_BUCKET, RULES, consume } from '@/server/security/rate-limit';
@@ -51,7 +52,10 @@ export default async function TrackingPage({
   const sessionId = typeof query.session_id === 'string' ? query.session_id : null;
   const order = await orderForTracking(token, sessionId);
   if (!order) notFound();
-  const settings = await getSettings();
+  const [settings, document] = await Promise.all([
+    getSettings(),
+    order.hasDocument ? getOrderDocumentInfo(order.id) : Promise.resolve(null),
+  ]);
 
   const unpaid = order.paymentMethod === 'stripe' && (order.paymentStatus === 'pendiente' || order.paymentStatus === 'caducado');
   const cancelled = order.status === 'cancelado';
@@ -64,7 +68,7 @@ export default async function TrackingPage({
     : unpaid
       ? 'Falta el pago'
       : order.status === 'entregado'
-        ? '¡Entregada! 🎉'
+        ? '¡Entregada!'
         : `Tu tarta para ${order.recipientName}`;
 
   const lead = cancelled
@@ -113,21 +117,23 @@ export default async function TrackingPage({
           </ol>
         ) : null}
 
-        <CakePreview
-          photo={order.hasPhoto ? `/api/pedidos/${order.publicId}/foto` : null}
-          text={order.cakeText}
-          className="max-w-[18rem]"
-        />
-
-        <section aria-label="La tarjeta" className="rounded-card bg-[#fffaf1] p-6 ring-1 ring-line">
-          <p className="type-eyebrow text-ink-subtle">La tarjeta</p>
-          <p className="mt-3 whitespace-pre-line font-display text-[1.15rem] leading-snug text-pretty">{order.cardMessage || '—'}</p>
-          <p className="type-caption mt-3 text-right">{order.signOff ? `— ${order.signOff}` : '(anónima)'}</p>
+        <section aria-label="La tarjeta" className="flex flex-col items-center gap-3">
+          <CardPreview
+            design={order.cardDesign}
+            message={order.cardMessage ?? ''}
+            signOff={order.signOff}
+            to={order.recipientName}
+            placeholder=" "
+            className="max-w-[16rem] shadow-[var(--shadow-lift)]"
+          />
+          <p className="type-caption text-center text-pretty">
+            Va impresa en la caja, con la tarta{document ? `, junto a tu documento (${document.filename})` : ''}.
+          </p>
         </section>
 
         <section aria-label="Entrega" className="flex flex-col gap-1.5 rounded-card bg-surface p-6 ring-1 ring-line/70">
           <p className="type-heading">
-            {OCCASIONS[order.occasion].emoji} {order.recipientName}
+            {order.recipientName}
             {order.recipientCompany ? ` · ${order.recipientCompany}` : ''}
           </p>
           <p className="type-body text-ink-muted">

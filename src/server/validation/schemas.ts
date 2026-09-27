@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { CARD_DESIGN_IDS, ORDER_DOCUMENT } from '@/lib/cards';
 import { LIMITS } from '@/lib/constants';
 import { isIsoDay } from '@/lib/dates';
 import { OCCASION_IDS, ORDER_LIMITS, SIZE_IDS, SLOT_IDS, type AddressKind } from '@/lib/orders';
@@ -86,20 +87,25 @@ export const postcodeSchema = z
 // Public: an order from /enviar
 // ---------------------------------------------------------------------------
 
-/** The photo as a data URL, resized in the browser; its bytes are checked by the service. */
-const PHOTO_MAX_CHARS = 2_100_000;
+/** The document as a data URL (base64 is 4/3 of the bytes); the service checks the bytes themselves. */
+const DOCUMENT_MAX_CHARS = Math.ceil((ORDER_DOCUMENT.maxBytes * 4) / 3) + 200;
 
 export const orderInputSchema = z.object({
-  // The cake
+  // The cake: nothing is written on it (yet), the words go on the card.
   cakeId: idSchema,
   size: enumOf(SIZE_IDS, 'Elige el tamaño'),
-  photo: z
-    .string()
-    .max(PHOTO_MAX_CHARS, 'La foto es demasiado grande')
-    .nullish()
-    .transform((v) => v || null),
-  cakeText: optionalText(ORDER_LIMITS.cakeText),
   allergies: optionalText(ORDER_LIMITS.notes),
+
+  // The card, and a document to print and put in the box
+  // Not chosen means the first one, as the form starts.
+  cardDesign: z.preprocess((v) => v ?? 'clasica', enumOf(CARD_DESIGN_IDS, 'Elige cómo es la tarjeta')),
+  document: z
+    .object({
+      name: z.string().max(260),
+      data: z.string().max(DOCUMENT_MAX_CHARS, 'El documento es demasiado grande (máximo 3 MB)'),
+    })
+    .nullish()
+    .transform((v) => v ?? null),
 
   // Who and where
   occasion: enumOf(OCCASION_IDS, 'Elige para qué es'),

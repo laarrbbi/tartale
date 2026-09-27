@@ -92,7 +92,6 @@ export async function updateBakeryAction(_previous: ActionState, formData: FormD
 
   const parsed = bakerySchema.safeParse({
     ...formFields(formData, ['name', 'city', 'address', 'contactName', 'phone', 'whatsapp', 'email', 'notePequena', 'noteMediana', 'noteGrande', 'notes']),
-    printsPhotos: formData.get('printsPhotos'),
     active: formData.get('active'),
   });
   if (!parsed.success) return fail('Revisa los datos.', toFieldErrors(parsed.error.issues));
@@ -111,14 +110,14 @@ export async function updateBakeryAction(_previous: ActionState, formData: FormD
     phone: d.phone,
     whatsapp: d.whatsapp,
     email: d.email,
-    printsPhotos: d.printsPhotos,
+    // Nothing is printed on the cakes for now: the flag stays as it was.
+    printsPhotos: bakery.printsPhotos,
     active: d.active,
     sizeNotes,
     notes: d.notes,
   });
   const changes: string[] = [];
   if (d.active !== bakery.active) changes.push(d.active ? 'activada' : 'pausada');
-  if (d.printsPhotos !== bakery.printsPhotos) changes.push(d.printsPhotos ? 'imprime fotos' : 'no imprime fotos');
   await audit(begun, 'bakery.update', `bakery:${bakery.id}`, [d.name, ...changes].join(' · '));
   revalidateCatalog(bakery.id);
   return ok(d.active ? 'Guardado.' : 'Guardado. Está pausada: no recibe pedidos nuevos de la web.');

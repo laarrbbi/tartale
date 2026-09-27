@@ -3,17 +3,17 @@
 import Link from 'next/link';
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 
-import { CakePreview } from '@/components/cake/cake-preview';
+import { CardPreview } from '@/components/card/card-preview';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Textarea } from '@/components/ui/field';
+import { CARD_DESIGNS, CARD_DESIGN_IDS, ORDER_DOCUMENT, type CardDesign } from '@/lib/cards';
 import { cn } from '@/lib/cn';
+import { formatBytes } from '@/lib/format';
 import { longDate, weekday, WEEKDAYS } from '@/lib/dates';
 import {
-  CAKE_TEXT_IDEAS,
   OCCASIONS,
   OCCASION_IDS,
   ORDER_LIMITS,
-  ORDER_PHOTO,
   SIZES,
   SIZE_IDS,
   SLOTS,
@@ -29,12 +29,15 @@ import {
 import { formatPostcodes } from '@/lib/zones';
 import type { PublicMenu } from '@/lib/catalog-types';
 
+/** The document for the box, read in the browser; the server checks its bytes again. */
+type DocumentFile = { name: string; size: number; data: string };
+
 type Values = {
   cakeId: number;
   size: CakeSize;
-  photo: string;
-  cakeText: string;
   allergies: string;
+  cardDesign: CardDesign;
+  document: DocumentFile | null;
   occasion: Occasion;
   recipientName: string;
   recipientCompany: string;
@@ -56,45 +59,27 @@ type Values = {
   marketingOptIn: boolean;
 };
 
-const STEPS = ['La tarta', 'Para quién', 'Tus datos'] as const;
+const STEPS = ['La tarta y la tarjeta', 'A quién y cuándo', 'Tus datos'] as const;
 
 /** Which step a field lives on, to jump back to it when the server objects. */
 const FIELD_STEP: Record<string, number> = {
-  cakeId: 0, size: 0, photo: 0, cakeText: 0, allergies: 0,
-  occasion: 1, recipientName: 1, recipientCompany: 1, addressKind: 1, address: 1, postalCode: 1,
-  deliveryNotes: 1, deliverOn: 1, timeSlot: 1, cardMessage: 1, signOff: 1, anonymous: 1, recipientPhone: 1,
+  occasion: 0, cardDesign: 0, cardMessage: 0, signOff: 0, anonymous: 0, document: 0, cakeId: 0, size: 0, allergies: 0,
+  recipientName: 1, recipientCompany: 1, addressKind: 1, address: 1, postalCode: 1,
+  deliveryNotes: 1, deliverOn: 1, timeSlot: 1, recipientPhone: 1,
   senderName: 2, senderPhone: 2, senderEmail: 2, senderCompany: 2, recipientConsent: 2,
 };
 
-/**
- * The photo, made small enough to send: longest side 1600 px, JPEG on white
- * (a transparent logo prints on the cake's white, not on black). The server
- * checks the bytes again; this only keeps uploads light on a phone connection.
- */
-async function shrink(file: File): Promise<string> {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = new Image();
-    img.src = url;
-    await img.decode();
-    const scale = Math.min(1, ORDER_PHOTO.maxSide / Math.max(img.naturalWidth, img.naturalHeight));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('canvas');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    for (const quality of [0.86, 0.75, 0.62, 0.5]) {
-      const data = canvas.toDataURL('image/jpeg', quality);
-      if (data.length * 0.75 < ORDER_PHOTO.maxBytes * 0.92) return data;
-    }
-    throw new Error('too big');
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+/** The file as a data URL, the way the order is sent (JSON). */
+function readDocument(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
+
+const DOCUMENT_EXTENSIONS = /\.(pdf|jpe?g|png)$/i;
 
 const choice =
   'pressable cursor-pointer rounded-field ring-1 ring-line-strong bg-surface transition-colors ' +
@@ -116,9 +101,9 @@ export function OrderFlow({
   const [values, setValues] = useState<Values>({
     cakeId: firstCake.id,
     size: priceFor(firstCake.prices, 'mediana') !== null ? 'mediana' : SIZE_IDS.find((s) => priceFor(firstCake.prices, s) !== null)!,
-    photo: '',
-    cakeText: '',
     allergies: '',
+    cardDesign: 'clasica',
+    document: null,
     occasion: 'networking',
     recipientName: '',
     recipientCompany: '',
@@ -143,7 +128,7 @@ export function OrderFlow({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [photoBusy, setPhotoBusy] = useState(false);
+  const [docBusy, setDocBusy] = useState(false);
   const startedAt = useRef(Date.now());
   const stepRef = useRef<HTMLDivElement>(null);
   const honeypotRef = useRef<HTMLInputElement>(null);
@@ -187,21 +172,25 @@ export function OrderFlow({
     setValues((v) => ({ ...v, occasion, cardMessage: cardTouched ? v.cardMessage : OCCASIONS[occasion].card }));
   }
 
-  async function onPhoto(e: ChangeEvent<HTMLInputElement>) {
+  async function onDocument(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setErrors((x) => ({ ...x, photo: 'Tiene que ser una imagen (JPG o PNG).' }));
+    if (!(ORDER_DOCUMENT.types as readonly string[]).includes(file.type) && !DOCUMENT_EXTENSIONS.test(file.name)) {
+      setErrors((x) => ({ ...x, document: 'Tiene que ser un PDF, JPG o PNG.' }));
       return;
     }
-    setPhotoBusy(true);
+    if (file.size > ORDER_DOCUMENT.maxBytes) {
+      setErrors((x) => ({ ...x, document: `Pesa ${formatBytes(file.size)}: como mucho ${formatBytes(ORDER_DOCUMENT.maxBytes)}.` }));
+      return;
+    }
+    setDocBusy(true);
     try {
-      set('photo', await shrink(file));
+      set('document', { name: file.name, size: file.size, data: await readDocument(file) });
     } catch {
-      setErrors((x) => ({ ...x, photo: 'No hemos podido leer esa foto. Prueba con otra (JPG o PNG).' }));
+      setErrors((x) => ({ ...x, document: 'No hemos podido leer ese archivo. Prueba con otro.' }));
     } finally {
-      setPhotoBusy(false);
+      setDocBusy(false);
     }
   }
 
@@ -261,7 +250,7 @@ export function OrderFlow({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           ...values,
-          photo: values.photo || null,
+          document: values.document ? { name: values.document.name, data: values.document.data } : null,
           website: honeypotRef.current?.value ?? '',
           elapsedMs: Date.now() - startedAt.current,
         }),
@@ -288,7 +277,17 @@ export function OrderFlow({
   }
 
   const error = (name: string) => errors[name];
-  const preview = <CakePreview photo={values.photo || null} text={values.cakeText} className={step === 0 ? 'max-w-[20rem]' : 'max-w-[11rem]'} />;
+  const cardSignOff = values.anonymous ? null : values.signOff.trim() || values.senderName.trim() || 'tu nombre';
+  const card = (className?: string) => (
+    <CardPreview
+      design={values.cardDesign}
+      message={values.cardMessage}
+      signOff={cardSignOff}
+      to={values.recipientName}
+      className={className}
+      label="Vista previa de la tarjeta"
+    />
+  );
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_22rem] lg:items-start">
@@ -304,60 +303,101 @@ export function OrderFlow({
           ))}
         </ol>
 
-        <div className="lg:hidden">{preview}</div>
 
         <div ref={stepRef} key={step} className="step-enter flex flex-col gap-6">
           {step === 0 ? (
             <>
-              {menu.bakery.printsPhotos ? (
-                <div className="flex flex-col gap-2">
-                  <p className="type-heading">Tu foto en la tarta</p>
-                  <p className="type-caption text-pretty">Un logo, una foto vuestra, un meme… Se imprime encima. Opcional.</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="pressable inline-flex h-11 cursor-pointer items-center rounded-pill bg-surface px-5 text-[0.9375rem] font-semibold text-ink ring-1 ring-line-strong has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand">
-                      {photoBusy ? 'Preparando…' : values.photo ? 'Cambiar la foto' : 'Subir una foto'}
-                      <input type="file" accept="image/*" className="sr-only" onChange={onPhoto} name="photo" />
-                    </label>
-                    {values.photo ? (
-                      <Button type="button" variant="ghost" size="sm" onClick={() => set('photo', '')}>
-                        Quitar
-                      </Button>
-                    ) : null}
-                  </div>
-                  {error('photo') ? (
-                    <p role="alert" className="type-caption text-critical">
-                      {error('photo')}
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="type-caption rounded-field bg-surface-sunken px-4 py-3">
-                  En {menu.city} todavía no imprimimos fotos: la tarta lleva tu frase escrita encima.
-                </p>
-              )}
-
-              <div className="flex flex-col gap-2">
-                <Field
-                  label="La frase de encima"
-                  htmlFor="cakeText"
-                  error={error('cakeText')}
-                  hint={`${values.cakeText.length}/${ORDER_LIMITS.cakeText} · Corta se lee mejor.`}
-                >
-                  <Input {...text('cakeText')} maxLength={ORDER_LIMITS.cakeText} placeholder="¿Un café esta semana? ☕" autoComplete="off" />
-                </Field>
-                <p className="type-caption">Ideas (toca una):</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {CAKE_TEXT_IDEAS.map((idea) => (
-                    <button
-                      key={idea}
-                      type="button"
-                      onClick={() => set('cakeText', idea)}
-                      className="pressable rounded-pill bg-surface-sunken px-3 py-1.5 text-[0.8125rem] text-ink hover:bg-brand-soft"
+              <fieldset className="flex flex-col gap-2">
+                <legend className="type-heading mb-2">¿Para qué es?</legend>
+                <div className="flex flex-wrap gap-2">
+                  {OCCASION_IDS.map((id) => (
+                    <label
+                      key={id}
+                      className="pressable cursor-pointer rounded-pill bg-surface px-3.5 py-2 ring-1 ring-line-strong has-[:checked]:bg-chocolate has-[:checked]:text-ink-inverse has-[:checked]:ring-chocolate has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand"
                     >
-                      {idea}
-                    </button>
+                      <input type="radio" name="occasion" value={id} checked={values.occasion === id} onChange={() => chooseOccasion(id)} className="sr-only" />
+                      <span className="text-[0.875rem] font-medium">{OCCASIONS[id].label}</span>
+                    </label>
                   ))}
                 </div>
+              </fieldset>
+
+              <fieldset className="flex flex-col gap-3">
+                <legend className="type-heading mb-1">La tarjeta</legend>
+                <p className="type-caption -mt-1 text-pretty">
+                  En la tarta no va nada escrito: tu mensaje va en una tarjeta impresa, dentro de la caja. Elige cómo es.
+                </p>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  {CARD_DESIGN_IDS.map((design) => (
+                    <label key={design} className={cn(choice, 'flex flex-col gap-2 p-2 sm:p-2.5')}>
+                      <input
+                        type="radio"
+                        name="cardDesign"
+                        value={design}
+                        checked={values.cardDesign === design}
+                        onChange={() => set('cardDesign', design)}
+                        className="sr-only"
+                      />
+                      <CardPreview design={design} message={values.cardMessage} signOff={cardSignOff} to={values.recipientName} label={CARD_DESIGNS[design].label} />
+                      <span className="px-0.5 text-[0.875rem] font-semibold leading-tight text-ink">{CARD_DESIGNS[design].label}</span>
+                      <span className="-mt-1.5 px-0.5 text-[0.72rem] leading-snug text-ink-muted">{CARD_DESIGNS[design].hint}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <div className="mx-auto w-full max-w-[17rem] lg:hidden">{card('shadow-[var(--shadow-lift)]')}</div>
+
+              <div className="flex flex-col gap-4">
+                <Field label="Tu mensaje" htmlFor="cardMessage" error={error('cardMessage')} hint={`${values.cardMessage.length}/${ORDER_LIMITS.cardMessage}`}>
+                  <Textarea
+                    {...text('cardMessage')}
+                    onChange={(e) => {
+                      setCardTouched(true);
+                      set('cardMessage', e.target.value);
+                    }}
+                    rows={3}
+                    maxLength={ORDER_LIMITS.cardMessage}
+                  />
+                </Field>
+                {!values.anonymous ? (
+                  <Field label="Firmado · opcional" htmlFor="signOff" error={error('signOff')} hint="Si lo dejas vacío, firmamos con tu nombre.">
+                    <Input {...text('signOff')} maxLength={ORDER_LIMITS.signOff} placeholder="Pablo, de Startup · pablo@startup.es" autoComplete="off" />
+                  </Field>
+                ) : null}
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input type="checkbox" name="anonymous" checked={values.anonymous} onChange={(e) => set('anonymous', e.target.checked)} className="h-5 w-5 shrink-0 accent-[var(--brand)]" />
+                  <span className="type-body">Sorpresa anónima: la tarjeta no dice quién la envía</span>
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <p className="type-heading">Un documento para la caja · opcional</p>
+                <p className="type-caption text-pretty">
+                  Tu CV, una propuesta, un dossier… Lo imprimimos y va dentro de la caja, con la tarjeta. PDF, JPG o PNG, hasta{' '}
+                  {formatBytes(ORDER_DOCUMENT.maxBytes)}.
+                </p>
+                {values.document ? (
+                  <div className="flex items-center justify-between gap-3 rounded-field bg-surface px-4 py-3 ring-1 ring-line-strong">
+                    <span className="min-w-0">
+                      <span className="type-body block truncate font-medium">{values.document.name}</span>
+                      <span className="type-caption">{formatBytes(values.document.size)}</span>
+                    </span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => set('document', null)}>
+                      Quitar
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="pressable inline-flex h-11 w-fit cursor-pointer items-center rounded-pill bg-surface px-5 text-[0.9375rem] font-semibold text-ink ring-1 ring-line-strong has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand">
+                    {docBusy ? 'Leyendo…' : 'Añadir un documento'}
+                    <input type="file" accept={ORDER_DOCUMENT.accept} className="sr-only" onChange={onDocument} name="document" />
+                  </label>
+                )}
+                {error('document') ? (
+                  <p role="alert" className="type-caption text-critical">
+                    {error('document')}
+                  </p>
+                ) : null}
               </div>
 
               <fieldset className="flex flex-col gap-2">
@@ -372,9 +412,7 @@ export function OrderFlow({
                           // eslint-disable-next-line @next/next/no-img-element -- a same-origin file
                           <img src={c.photo} alt="" className="aspect-square w-full rounded-[10px] object-cover" loading="lazy" />
                         ) : (
-                          <span aria-hidden className="grid aspect-square w-full place-items-center rounded-[10px] bg-surface-sunken text-2xl">
-                            🎂
-                          </span>
+                          <span aria-hidden className="block aspect-square w-full rounded-[10px] bg-surface-sunken" />
                         )}
                         <span className="px-1 text-[0.875rem] font-medium leading-snug text-ink">{c.name}</span>
                         {from !== null ? <span className="type-caption px-1 pb-1">desde {formatEuros(from)}</span> : null}
@@ -423,23 +461,6 @@ export function OrderFlow({
 
           {step === 1 ? (
             <>
-              <fieldset className="flex flex-col gap-2">
-                <legend className="type-heading mb-2">¿Para qué es?</legend>
-                <div className="flex flex-wrap gap-2">
-                  {OCCASION_IDS.map((id) => (
-                    <label
-                      key={id}
-                      className="pressable cursor-pointer rounded-pill bg-surface px-3.5 py-2 ring-1 ring-line-strong has-[:checked]:bg-chocolate has-[:checked]:text-ink-inverse has-[:checked]:ring-chocolate has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand"
-                    >
-                      <input type="radio" name="occasion" value={id} checked={values.occasion === id} onChange={() => chooseOccasion(id)} className="sr-only" />
-                      <span className="text-[0.875rem] font-medium">
-                        {OCCASIONS[id].emoji} {OCCASIONS[id].label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Su nombre" htmlFor="recipientName" error={error('recipientName')}>
                   <Input {...text('recipientName')} required maxLength={ORDER_LIMITS.name} autoComplete="off" />
@@ -454,7 +475,7 @@ export function OrderFlow({
                 {(['oficina', 'casa'] as const).map((kind) => (
                   <label key={kind} className={cn(choice, 'flex items-center justify-center gap-2 py-3')}>
                     <input type="radio" name="addressKind" value={kind} checked={values.addressKind === kind} onChange={() => set('addressKind', kind)} className="sr-only" />
-                    <span className="type-body font-medium">{kind === 'oficina' ? '🏢 A su oficina' : '🏠 A su casa'}</span>
+                    <span className="type-body font-medium">{kind === 'oficina' ? 'A su oficina' : 'A su casa'}</span>
                   </label>
                 ))}
               </fieldset>
@@ -503,30 +524,6 @@ export function OrderFlow({
                 </fieldset>
               </div>
 
-              <div className="flex flex-col gap-4 rounded-card bg-[#fffaf1] p-4 ring-1 ring-line sm:p-5">
-                <p className="type-heading">La tarjeta que va con la tarta</p>
-                <Field label="Tu mensaje" htmlFor="cardMessage" error={error('cardMessage')} hint={`${values.cardMessage.length}/${ORDER_LIMITS.cardMessage}`}>
-                  <Textarea
-                    {...text('cardMessage')}
-                    onChange={(e) => {
-                      setCardTouched(true);
-                      set('cardMessage', e.target.value);
-                    }}
-                    rows={3}
-                    maxLength={ORDER_LIMITS.cardMessage}
-                  />
-                </Field>
-                {!values.anonymous ? (
-                  <Field label="Firmado · opcional" htmlFor="signOff" error={error('signOff')} hint="Si lo dejas vacío, firmamos con tu nombre.">
-                    <Input {...text('signOff')} maxLength={ORDER_LIMITS.signOff} placeholder="Pablo, de Startup · pablo@startup.es" autoComplete="off" />
-                  </Field>
-                ) : null}
-                <label className="flex cursor-pointer items-center gap-3">
-                  <input type="checkbox" name="anonymous" checked={values.anonymous} onChange={(e) => set('anonymous', e.target.checked)} className="h-5 w-5 shrink-0 accent-[var(--brand)]" />
-                  <span className="type-body">Sorpresa anónima: la tarjeta no dice quién la envía</span>
-                </label>
-              </div>
-
               <Field
                 label="Su teléfono · opcional"
                 htmlFor="recipientPhone"
@@ -562,7 +559,8 @@ export function OrderFlow({
                 deliveryCents={deliveryCents}
                 deliveryOptions={deliveryOptions}
                 total={total}
-                withPhoto={Boolean(values.photo)}
+                cardDesign={values.cardDesign}
+                documentName={values.document?.name ?? null}
                 city={menu.city}
                 deliverOn={values.deliverOn}
                 timeSlot={values.timeSlot}
@@ -623,7 +621,7 @@ export function OrderFlow({
               Atrás
             </Button>
           ) : null}
-          <Button type="submit" size="lg" className="flex-1" disabled={sending || photoBusy}>
+          <Button type="submit" size="lg" className="flex-1" disabled={sending || docBusy}>
             {step < STEPS.length - 1
               ? 'Seguir'
               : sending
@@ -644,17 +642,10 @@ export function OrderFlow({
       </form>
 
       <aside className="hidden lg:sticky lg:top-24 lg:flex lg:flex-col lg:gap-4">
-        <CakePreview photo={values.photo || null} text={values.cakeText} />
-        <p className="type-caption text-center">Vista previa orientativa</p>
-        {step >= 1 ? (
-          <div className="rounded-card bg-[#fffaf1] p-5 ring-1 ring-line">
-            <p className="type-eyebrow text-ink-subtle">La tarjeta</p>
-            <p className="mt-3 whitespace-pre-line font-display text-[1.1rem] leading-snug text-pretty">{values.cardMessage || '…'}</p>
-            <p className="type-caption mt-3 text-right">
-              {values.anonymous ? '(anónima)' : `— ${values.signOff || values.senderName || 'tu nombre'}`}
-            </p>
-          </div>
-        ) : null}
+        {card('shadow-[var(--shadow-lift)]')}
+        <p className="type-caption text-center">
+          Así será la tarjeta. Va impresa en la caja{values.document ? ', con tu documento' : ''}.
+        </p>
         <div className="rounded-card bg-surface p-5 ring-1 ring-line/70">
           <p className="type-body flex justify-between gap-3">
             <span>
@@ -679,7 +670,8 @@ function Summary({
   deliveryCents,
   deliveryOptions,
   total,
-  withPhoto,
+  cardDesign,
+  documentName,
   city,
   deliverOn,
   timeSlot,
@@ -691,7 +683,8 @@ function Summary({
   deliveryCents: number | null;
   deliveryOptions: number[];
   total: number | null;
-  withPhoto: boolean;
+  cardDesign: CardDesign;
+  documentName: string | null;
   city: string;
   deliverOn: string;
   timeSlot: TimeSlot;
@@ -706,9 +699,12 @@ function Summary({
       <p className="type-body mt-1 flex justify-between gap-3">
         <span>
           Tarta {cakeName} · {SIZES[size].label.toLowerCase()}
-          {withPhoto ? ' · con foto' : ''}
         </span>
         <span className="type-numeric">{price !== null ? formatEuros(price) : '—'}</span>
+      </p>
+      <p className="type-caption">
+        En la caja: tarjeta {CARD_DESIGNS[cardDesign].label.toLowerCase()}
+        {documentName ? ` y tu documento (${documentName})` : ''}
       </p>
       <p className="type-body flex justify-between gap-3">
         <span>Entrega en {city}</span>

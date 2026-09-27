@@ -44,7 +44,6 @@ export default async function BakeriesPage() {
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="type-heading mr-1">{bakery.name}</span>
                     <Badge tone={bakery.active ? 'positive' : 'neutral'}>{bakery.active ? 'Activa' : 'Pausada'}</Badge>
-                    {bakery.printsPhotos ? <Badge tone="brand">Imprime fotos</Badge> : null}
                   </span>
                   <span className="type-caption">
                     {bakery.city}

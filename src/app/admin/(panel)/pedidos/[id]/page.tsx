@@ -1,21 +1,22 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import { CakePreview } from '@/components/cake/cake-preview';
+import { CardPreview } from '@/components/card/card-preview';
 import { DeleteOrderForm, EraseOrderForm, ManualPaymentForm, RefundForm, StatusControls, UpdateOrderForm } from '@/components/admin/order-forms';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { CARD_DESIGNS } from '@/lib/cards';
 import { RETENTION_DAYS } from '@/lib/constants';
 import { env } from '@/lib/env';
 import { longDate } from '@/lib/dates';
-import { actorLabel, formatStamp, formatWhen } from '@/lib/format';
+import { actorLabel, formatBytes, formatStamp, formatWhen } from '@/lib/format';
 import { bakeryBrief, mapsLink, senderConfirmation } from '@/lib/messages';
 import { OCCASIONS, ORDER_SOURCES, PAYMENT_METHODS, PAYMENT_STATUSES, SIZES, SLOTS, STATUSES, canDeleteOrder, formatEuros } from '@/lib/orders';
 import { telHref, whatsappLink } from '@/lib/whatsapp';
 import { requireSession } from '@/server/auth/guard';
 import { listAudit } from '@/server/repositories/audit';
 import { findBakery, listBakeries } from '@/server/repositories/catalog';
-import { findOrderById } from '@/server/repositories/orders';
+import { findOrderById, getOrderDocumentInfo } from '@/server/repositories/orders';
 import { trackingUrl } from '@/server/services/payment-service';
 
 const link = 'type-caption font-medium text-brand underline underline-offset-2';
@@ -28,13 +29,13 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const order = await findOrderById(id);
   if (!order) notFound();
 
-  const [bakery, bakeries, activity] = await Promise.all([
+  const [bakery, bakeries, activity, document] = await Promise.all([
     findBakery(order.bakeryId),
     listBakeries(),
     listAudit({ target: `order:${order.id}`, limit: 50 }),
+    order.hasDocument ? getOrderDocumentInfo(order.id) : Promise.resolve(null),
   ]);
   const tracking = trackingUrl(order.publicId);
-  const photoUrl = `/api/pedidos/${order.publicId}/foto`;
   const awaitingPayment = order.paymentMethod === 'stripe' && (order.paymentStatus === 'pendiente' || order.paymentStatus === 'caducado');
   const refundable = order.paymentMethod === 'stripe' ? order.paidCents - order.refundedCents : 0;
   const waSender = whatsappLink(order.senderPhone, senderConfirmation(order, tracking));
@@ -54,7 +55,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <h1 className="type-display mr-1">
-            {OCCASIONS[order.occasion].emoji} {order.recipientName ?? 'Datos borrados'}
+            {order.recipientName ?? 'Datos borrados'}
           </h1>
           <Badge tone={STATUSES[order.status].tone}>{STATUSES[order.status].label}</Badge>
           <Badge tone={PAYMENT_STATUSES[order.paymentStatus].tone}>{PAYMENT_STATUSES[order.paymentStatus].label}</Badge>
@@ -89,24 +90,35 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader title="La tarta" />
+          <CardHeader title="Lo que va en la caja" description="La tarta, sin nada escrito encima; la tarjeta y, si lo hay, el documento, impresos." />
           <CardBody className="flex flex-col gap-3 pt-2">
-            <CakePreview photo={order.hasPhoto ? photoUrl : null} text={order.cakeText} className="max-w-[15rem]" />
             <p className="type-body">
-              {order.cakeName} · {SIZES[order.size].label}
+              Tarta {order.cakeName} · {SIZES[order.size].label.toLowerCase()}
             </p>
-            <p className="type-body">
-              <span className="text-ink-muted">Encima: </span>
-              <strong>{order.cakeText ? `«${order.cakeText}»` : '(sin frase)'}</strong>
+            {order.allergies ? <p className="type-body font-medium text-critical">Alergias: {order.allergies}</p> : null}
+            <CardPreview
+              design={order.cardDesign}
+              message={order.cardMessage ?? ''}
+              signOff={order.signOff}
+              to={order.recipientName}
+              placeholder="(sin mensaje)"
+              className="max-w-[13rem] shadow-[var(--shadow-card)]"
+            />
+            <p className="type-caption">
+              Tarjeta {CARD_DESIGNS[order.cardDesign].label.toLowerCase()} · {order.signOff ? `firmada: ${order.signOff}` : 'anónima'}
             </p>
-            {order.hasPhoto ? (
-              <a href={`${photoUrl}?descargar`} className={link}>
-                Descargar la foto para la impresora
+            {!order.erased ? (
+              <Link href={`/admin/tarjeta/${order.id}`} target="_blank" className={link}>
+                Imprimir la tarjeta (A6)
+              </Link>
+            ) : null}
+            {document ? (
+              <a href={`/api/admin/pedidos/${order.id}/documento`} className={link}>
+                Descargar el documento para imprimir: {document.filename} ({formatBytes(document.sizeBytes)})
               </a>
             ) : (
-              <p className="type-caption">Sin foto.</p>
+              <p className="type-caption">Sin documento.</p>
             )}
-            {order.allergies ? <p className="type-body font-medium text-critical">⚠️ Alergias: {order.allergies}</p> : null}
           </CardBody>
         </Card>
 
@@ -133,15 +145,6 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                 </a>
               ) : null}
             </div>
-            <div className="mt-2 rounded-field bg-[#fffaf1] p-4 ring-1 ring-line">
-              <p className="whitespace-pre-line font-display text-[1.05rem] leading-snug text-pretty">{order.cardMessage || '—'}</p>
-              <p className="type-caption mt-2 text-right">{order.signOff ? `— ${order.signOff}` : '(anónima)'}</p>
-            </div>
-            {!order.erased ? (
-              <Link href={`/admin/tarjeta/${order.id}`} target="_blank" className={link}>
-                Imprimir la tarjeta (A6)
-              </Link>
-            ) : null}
           </CardBody>
         </Card>
 

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { parseBirthdayList, parseDayMonth } from '@/lib/birthdays';
 import { CAKE_PHOTO_PATHS } from '@/lib/cake-photos';
+import { CARD_DESIGN_IDS } from '@/lib/cards';
 import { ORDER_LIMITS, SIZE_IDS, SLOT_IDS, type AddressKind, type CakeSize } from '@/lib/orders';
 import { normalizeWhatsappNumber } from '@/lib/whatsapp';
 import { isPostcode, parsePostcodes } from '@/lib/zones';
@@ -58,7 +59,6 @@ export const bakerySchema = z.object({
   phone: optionalPhone,
   whatsapp: optionalPhone.refine((v) => v === null || normalizeWhatsappNumber(v) !== null, 'Ese número no sirve para WhatsApp'),
   email: optionalEmail,
-  printsPhotos: checkbox,
   active: checkbox,
   notePequena: optionalText(60),
   noteMediana: optionalText(60),
@@ -179,7 +179,7 @@ const birthdayTemplate = {
   size: enumOf(SIZE_IDS, 'Elige el tamaño'),
   timeSlot: enumOf(SLOT_IDS, 'Elige la franja'),
   addressKind: enumOf<AddressKind>(['oficina', 'casa'], 'Oficina o casa'),
-  cakeText: optionalText(ORDER_LIMITS.cakeText),
+  cardDesign: enumOf(CARD_DESIGN_IDS, 'Elige cómo es la tarjeta'),
   cardMessage: optionalMultiline(ORDER_LIMITS.cardMessage),
   signOff: optionalText(ORDER_LIMITS.signOff),
   deliveryNotes: optionalText(ORDER_LIMITS.notes),

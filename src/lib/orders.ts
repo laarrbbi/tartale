@@ -4,14 +4,14 @@
  */
 
 export const OCCASIONS = {
-  networking: { label: 'Networking', emoji: '🤝', card: 'Un email se ignora. Una tarta, no. ¿Tomamos un café?' },
-  inversor: { label: 'Un inversor', emoji: '📈', card: 'Nos encantaría contarte lo que estamos construyendo.' },
-  socio: { label: 'Un futuro socio', emoji: '✨', card: 'Por todo lo que podemos hacer juntos.' },
-  reclutador: { label: 'Un reclutador', emoji: '💼', card: 'Una forma dulce de presentarme.' },
-  cliente: { label: 'Un cliente', emoji: '🙏', card: 'Gracias por confiar en nosotros.' },
-  cumpleanos: { label: 'Un cumpleaños', emoji: '🎂', card: '¡Feliz cumpleaños!' },
-  equipo: { label: 'Alguien del equipo', emoji: '🙌', card: 'Gracias por todo lo que haces.' },
-  otro: { label: 'Otra cosa', emoji: '🎁', card: '' },
+  networking: { label: 'Networking', card: 'Un email se ignora. Una tarta, no. ¿Tomamos un café?' },
+  inversor: { label: 'Un inversor', card: 'Nos encantaría contarte lo que estamos construyendo.' },
+  socio: { label: 'Un futuro socio', card: 'Por todo lo que podemos hacer juntos.' },
+  reclutador: { label: 'Un reclutador', card: 'Una forma dulce de presentarme.' },
+  cliente: { label: 'Un cliente', card: 'Gracias por confiar en nosotros.' },
+  cumpleanos: { label: 'Un cumpleaños', card: '¡Feliz cumpleaños!' },
+  equipo: { label: 'Alguien del equipo', card: 'Gracias por todo lo que haces.' },
+  otro: { label: 'Otra cosa', card: '' },
 } as const;
 export type Occasion = keyof typeof OCCASIONS;
 export const OCCASION_IDS = Object.keys(OCCASIONS) as Occasion[];
@@ -88,7 +88,6 @@ export const ORDER_SOURCES = {
 export type OrderSource = keyof typeof ORDER_SOURCES;
 
 export const ORDER_LIMITS = {
-  cakeText: 60,
   cardMessage: 300,
   signOff: 60,
   notes: 300,
@@ -99,23 +98,6 @@ export const ORDER_LIMITS = {
   phone: 24,
 } as const;
 
-/** A photo printed on the cake: resized in the browser, checked on the server. */
-export const ORDER_PHOTO = {
-  maxBytes: 1_500_000,
-  maxSide: 1600,
-  types: ['image/jpeg', 'image/png', 'image/webp'] as const,
-} as const;
-
-/** Lines that work on a cake: short, and a reason to answer. Tapping one fills the field. */
-export const CAKE_TEXT_IDEAS = [
-  '¿Un café esta semana? ☕',
-  'Mejor que otro email 😉',
-  'Enhorabuena por la ronda 🚀',
-  'Hablemos 🤝',
-  '¡Bienvenido/a al equipo!',
-  'Gracias por todo 🙏',
-  '¡Feliz cumple! 🎂',
-] as const;
 
 /** Money is integer cents everywhere; this is the only way it becomes text. */
 export function formatEuros(cents: number): string {

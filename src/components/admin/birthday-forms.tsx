@@ -2,6 +2,7 @@
 
 import { AdminForm, FormBanner, SubmitButton } from '@/components/admin/form';
 import { Field, Input, Select, Textarea } from '@/components/ui/field';
+import { CARD_DESIGNS, CARD_DESIGN_IDS, type CardDesign } from '@/lib/cards';
 import { ORDER_LIMITS, SIZES, SIZE_IDS, SLOTS, SLOT_IDS, formatEuros, type AddressKind, type CakeSize, type TimeSlot } from '@/lib/orders';
 import {
   createBirthdayOrderNowAction,
@@ -40,7 +41,7 @@ export interface BirthdayFormData {
   deliveryNotes: string | null;
   cakeId: number;
   size: CakeSize;
-  cakeText: string | null;
+  cardDesign: CardDesign;
   cardMessage: string | null;
   signOff: string | null;
   timeSlot: TimeSlot;
@@ -182,15 +183,16 @@ function CakeAndWords({
           : 'No hay tartas en la carta.'}
         {cakes.length > 4 ? ' · …' : ''}
       </p>
-      <Field
-        label="Encima de la tarta"
-        htmlFor={`${prefix}-text`}
-        error={errors?.cakeText}
-        hint="{nombre} se cambia por el nombre de pila de cada persona."
-      >
-        <Input id={`${prefix}-text`} name="cakeText" defaultValue={values.cakeText ?? ''} maxLength={ORDER_LIMITS.cakeText} />
+      <Field label="Diseño de la tarjeta" htmlFor={`${prefix}-design`} error={errors?.cardDesign} hint="Nada va escrito en la tarta: el mensaje va en la tarjeta.">
+        <Select id={`${prefix}-design`} name="cardDesign" defaultValue={values.cardDesign ?? 'clasica'}>
+          {CARD_DESIGN_IDS.map((design) => (
+            <option key={design} value={design}>
+              {CARD_DESIGNS[design].label} · {CARD_DESIGNS[design].hint.toLowerCase()}
+            </option>
+          ))}
+        </Select>
       </Field>
-      <Field label="Tarjeta" htmlFor={`${prefix}-card`} error={errors?.cardMessage}>
+      <Field label="Tarjeta" htmlFor={`${prefix}-card`} error={errors?.cardMessage} hint="{nombre} se cambia por el nombre de pila de cada persona.">
         <Textarea id={`${prefix}-card`} name="cardMessage" rows={3} defaultValue={values.cardMessage ?? ''} maxLength={ORDER_LIMITS.cardMessage} />
       </Field>
       <Field label="Firma de la tarjeta" htmlFor={`${prefix}-sign`} error={errors?.signOff}>
@@ -263,7 +265,7 @@ export function ImportBirthdaysForm({
             prefix="import"
             cakes={cakes}
             errors={state.fieldErrors}
-            values={{ cakeText: '¡Feliz cumple, {nombre}! 🎂', cardMessage: '¡Feliz cumpleaños, {nombre}!', signOff: companyName }}
+            values={{ cardDesign: 'clasica', cardMessage: '¡Feliz cumpleaños, {nombre}!', signOff: companyName }}
           />
           <SubmitButton pendingLabel="Añadiendo…" className="self-start">
             Añadir a la lista

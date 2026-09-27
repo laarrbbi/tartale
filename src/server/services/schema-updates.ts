@@ -52,12 +52,52 @@ export async function publicApiIsClosed(db: Db): Promise<boolean> {
   return (row?.open_tables ?? 1) === 0 && (row?.api_grants ?? 1) === 0;
 }
 
+async function hasColumn(db: Db, table: string, column: string): Promise<boolean> {
+  return (
+    (await one(
+      db,
+      `select 1 from information_schema.columns where table_schema = 'public' and table_name = $1 and column_name = $2`,
+      [table, column],
+    )) !== null
+  );
+}
+
+async function hasTable(db: Db, table: string): Promise<boolean> {
+  return (await one(db, `select 1 from pg_tables where schemaname = 'public' and tablename = $1`, [table])) !== null;
+}
+
+const CARD_DESIGN_CHECK = `check (card_design in ('clasica', 'mano', 'color'))`;
+
 export const UPDATES: readonly SchemaUpdate[] = [
   {
     id: '20260926120000_initial_schema',
     label: 'Cerrar el acceso público de Supabase a las tablas',
     isApplied: publicApiIsClosed,
     statements: [LOCK_DOWN_PUBLIC_API],
+  },
+  {
+    id: '20260927120000_card_designs_and_documents',
+    label: 'Diseños de tarjeta y documentos para meter en la caja',
+    isApplied: async (db) =>
+      (await hasColumn(db, 'orders', 'card_design')) &&
+      (await hasColumn(db, 'orders', 'has_document')) &&
+      (await hasColumn(db, 'birthdays', 'card_design')) &&
+      (await hasTable(db, 'order_documents')) &&
+      (await publicApiIsClosed(db)),
+    statements: [
+      `alter table public.orders add column if not exists card_design text not null default 'clasica' ${CARD_DESIGN_CHECK}`,
+      'alter table public.orders add column if not exists has_document boolean not null default false',
+      `alter table public.birthdays add column if not exists card_design text not null default 'clasica' ${CARD_DESIGN_CHECK}`,
+      `create table if not exists public.order_documents (
+         order_id   bigint      primary key references public.orders(id) on delete cascade,
+         mime       text        not null check (mime in ('application/pdf', 'image/jpeg', 'image/png')),
+         filename   text        not null check (length(filename) between 1 and 120),
+         size_bytes integer     not null check (size_bytes > 0),
+         bytes      bytea       not null,
+         created_at timestamptz not null default now()
+       )`,
+      LOCK_DOWN_PUBLIC_API,
+    ],
   },
 ];
 

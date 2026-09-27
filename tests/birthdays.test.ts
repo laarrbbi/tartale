@@ -51,7 +51,7 @@ async function aPerson(companyId: number, inDays: number, overrides: Partial<Bir
       deliveryNotes: 'Portero automático 2B',
       cakeId: await cakeId('Lotus'),
       size: 'mediana',
-      cakeText: '¡Feliz cumple, {nombre}! 🎂',
+      cardDesign: 'mano',
       cardMessage: 'Muchas felicidades, {nombre}.',
       signOff: 'Tu equipo de Acme',
       timeSlot: 'manana',
@@ -68,7 +68,7 @@ test('a pasted list: each line, the office address for the lines without one, an
     size: 'mediana',
     timeSlot: 'manana',
     addressKind: 'oficina',
-    cakeText: '',
+    cardDesign: 'clasica',
     cardMessage: '',
     signOff: '',
     deliveryNotes: '',
@@ -108,7 +108,7 @@ test('a birthday a week away becomes a "Nuevo" order, priced from the menu, conf
   assert.equal(order.birthdayYear, Number(addDays(TODAY, 7).slice(0, 4)));
   assert.equal(order.priceCents, 4600); // Lotus, mediana, from the seed menu
   assert.equal(order.deliveryCents, 1000);
-  assert.equal(order.cakeText, '¡Feliz cumple, Lucía! 🎂');
+  assert.equal(order.cardDesign, 'mano');
   assert.equal(order.cardMessage, 'Muchas felicidades, Lucía.');
   assert.equal(order.recipientCompany, 'Acme Levante');
   assert.equal(order.recipientPhone, null);
@@ -210,6 +210,11 @@ async function anOrderDeliveredDaysAgo(days: number, status = 'entregado'): Prom
     [addDays(TODAY, -days), status],
   );
   await sqlRun(`insert into order_photos (order_id, mime, bytes) values ($1, 'image/jpeg', '\\xffd8ff'::bytea)`, [row!.id]);
+  await sqlRun(
+    `insert into order_documents (order_id, mime, filename, size_bytes, bytes) values ($1, 'application/pdf', 'CV.pdf', 5, '\\x255044462d'::bytea)`,
+    [row!.id],
+  );
+  await sqlRun('update orders set has_document = true where id = $1', [row!.id]);
   return row!.id;
 }
 
@@ -231,7 +236,6 @@ test('retention: 90 days after delivery the people go, whatever the status; what
       o.address,
       o.postalCode,
       o.deliveryNotes,
-      o.cakeText,
       o.cardMessage,
       o.signOff,
       o.senderName,
@@ -243,12 +247,13 @@ test('retention: 90 days after delivery the people go, whatever the status; what
     ]) {
       assert.equal(field, null);
     }
-    assert.equal(o.hasPhoto, false);
+    assert.equal(o.hasDocument, false);
     assert.equal(o.cakeName, 'Lotus');
     assert.equal(o.totalCents, 5600);
     assert.equal(o.paidCents, 5600);
   }
   assert.equal(await countRows('order_photos'), 1, 'only the recent order keeps its photo');
+  assert.equal(await countRows('order_documents'), 1, 'and its document');
   assert.equal((await findOrderById(recent))!.recipientName, 'Marta Ruiz');
   assert.equal((await runRetention(TODAY)).erased, 0, 'nothing twice');
   const log = await sqlAll<{ detail: string }>(`select detail from audit_log where action = 'retention.run'`);

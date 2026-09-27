@@ -82,9 +82,6 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                 {list.map((o) => (
                   <li key={o.id}>
                     <Link href={`/admin/pedidos/${o.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-sunken/60">
-                      <span className="text-xl" aria-hidden>
-                        {OCCASIONS[o.occasion].emoji}
-                      </span>
                       <span className="min-w-0 flex-1">
                         <span className="type-body block truncate font-medium">
                           {o.recipientName ?? 'Datos borrados'}
@@ -92,7 +89,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                         </span>
                         <span className="type-caption block truncate">
                           nº {o.id} · {SLOTS[o.timeSlot].hours} · {o.cakeName} {SIZES[o.size].label.toLowerCase()}
-                          {o.hasPhoto ? ' · 📸' : ''}
+                          {o.hasDocument ? ' · con documento' : ''}
                           {o.postalCode ? ` · ${o.postalCode}` : ''}
                           {bakeries.length > 1 ? ` · ${bakeryName.get(o.bakeryId) ?? ''}` : ''}
                         </span>

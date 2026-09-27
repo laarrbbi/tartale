@@ -1,3 +1,4 @@
+import { CARD_DESIGNS, type CardDesign } from './cards';
 import { longDate } from './dates';
 import { SIZES, SLOTS, formatEuros } from './orders';
 
@@ -9,8 +10,8 @@ export interface MessageOrder {
   id: number;
   cakeName: string;
   size: keyof typeof SIZES;
-  cakeText: string | null;
-  hasPhoto: boolean;
+  cardDesign: CardDesign;
+  hasDocument: boolean;
   allergies: string | null;
   cardMessage: string | null;
   signOff: string | null;
@@ -48,14 +49,20 @@ export function senderConfirmation(order: MessageOrder, trackingUrl: string): st
   ].join(' ');
 }
 
-/** To the bakery: everything it needs to bake, print and deliver. */
+/**
+ * To the bakery: everything it needs to bake and deliver. Nothing is written
+ * on the cake; the card (and a document, if there is one) go in the box.
+ */
 export function bakeryBrief(order: MessageOrder): string {
   const lines = [
     `Pedido Tartale nº ${order.id} · ${longDate(order.deliverOn)}, ${SLOTS[order.timeSlot].label.toLowerCase()} (${SLOTS[order.timeSlot].hours})`,
-    `Tarta: ${order.cakeName}, ${SIZES[order.size].label.toLowerCase()}`,
-    `Encima: ${order.cakeText ? `«${order.cakeText}»` : '(sin frase)'}${order.hasPhoto ? ' · con foto (te la paso aparte)' : ' · sin foto'}`,
+    `Tarta: ${order.cakeName}, ${SIZES[order.size].label.toLowerCase()}. Sin nada escrito encima.`,
   ];
-  if (order.allergies) lines.push(`⚠️ Alergias: ${order.allergies}`);
+  if (order.allergies) lines.push(`Alergias: ${order.allergies}`);
+  lines.push(
+    `En la caja: la tarjeta impresa (diseño ${CARD_DESIGNS[order.cardDesign].label.toLowerCase()})` +
+      (order.hasDocument ? ' y un documento impreso.' : '.'),
+  );
   lines.push(`Tarjeta: ${order.cardMessage ? `«${order.cardMessage}»` : '(sin mensaje)'} — ${order.signOff ?? 'anónima'}`);
   lines.push(
     `Entregar a: ${order.recipientName ?? ''}${order.recipientCompany ? ` (${order.recipientCompany})` : ''}, ${order.address ?? ''}, ${order.postalCode ?? ''} ${order.city}` +

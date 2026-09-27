@@ -181,7 +181,8 @@ create table if not exists public.birthdays (
   sign_off          text,
   time_slot         text        not null default 'manana' check (time_slot in ('manana', 'tarde')),
   created_at        timestamptz not null default now(),
-  updated_at        timestamptz not null default now()
+  updated_at        timestamptz not null default now(),
+  card_design       text        not null default 'clasica' check (card_design in ('clasica', 'mano', 'color'))
 );
 create index if not exists birthdays_company_idx on public.birthdays (company_id);
 create index if not exists birthdays_cake_idx on public.birthdays (cake_id);
@@ -249,7 +250,10 @@ create table if not exists public.orders (
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now(),
   status_changed_at     timestamptz not null default now(),
-  erased_at             timestamptz
+  erased_at             timestamptz,
+  -- The card's design (src/lib/cards.ts), and whether a document goes in the box.
+  card_design           text        not null default 'clasica' check (card_design in ('clasica', 'mano', 'color')),
+  has_document          boolean     not null default false
 );
 create index if not exists orders_deliver_idx on public.orders (deliver_on, status);
 create index if not exists orders_bakery_idx on public.orders (bakery_id, deliver_on);
@@ -261,10 +265,22 @@ create unique index if not exists orders_birthday_year_idx
   on public.orders (birthday_id, birthday_year) where birthday_id is not null;
 
 -- The photo for the cake. Its type was read from its first bytes, not from
--- what the browser claimed.
+-- what the browser claimed. Unused for now: nothing is printed on the cakes
+-- yet (see 20260927120000_card_designs_and_documents.sql).
 create table if not exists public.order_photos (
   order_id   bigint      primary key references public.orders(id) on delete cascade,
   mime       text        not null check (mime in ('image/jpeg', 'image/png', 'image/webp')),
+  bytes      bytea       not null,
+  created_at timestamptz not null default now()
+);
+
+-- A document the sender adds (a CV, a proposal…), printed and put in the box.
+-- Its type was read from its first bytes; erased with the order's people.
+create table if not exists public.order_documents (
+  order_id   bigint      primary key references public.orders(id) on delete cascade,
+  mime       text        not null check (mime in ('application/pdf', 'image/jpeg', 'image/png')),
+  filename   text        not null check (length(filename) between 1 and 120),
+  size_bytes integer     not null check (size_bytes > 0),
   bytes      bytea       not null,
   created_at timestamptz not null default now()
 );

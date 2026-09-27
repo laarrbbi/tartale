@@ -10,11 +10,12 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Condiciones de compra" updated="26 de septiembre de 2026">
+    <LegalPage title="Condiciones de compra" updated="27 de septiembre de 2026">
       <h2>Qué compras</h2>
       <p>
-        Una tarta con la foto y la frase que eliges, acompañada de una tarjeta con tu mensaje. La prepara y la entrega una
-        pastelería asociada de la ciudad de destino. La vista previa de la web es orientativa.
+        Una tarta de la carta de una pastelería asociada de la ciudad de destino, que la prepara y la entrega. La tarta va sin
+        nada escrito encima; tu mensaje va en una tarjeta impresa, en el diseño que elijas, dentro de la caja. Si añades un
+        documento (un CV, una propuesta…), lo imprimimos y va con ella. La vista previa de la tarjeta es orientativa.
       </p>
 
       <h2>Precio y pago</h2>
@@ -30,10 +31,11 @@ export default function TermsPage() {
       </p>
       <p>Si no podemos entregarla, te devolvemos el importe íntegro.</p>
 
-      <h2>La foto y el texto</h2>
+      <h2>La tarjeta y el documento</h2>
       <p>
-        Al subir una foto nos confirmas que puedes usarla. No imprimimos contenido ofensivo, ilegal o que vulnere derechos de
-        otras personas; si un pedido lo tuviera, lo cancelamos y te devolvemos el dinero.
+        Lo que escribes en la tarjeta y el documento que subes son tuyos, y nos confirmas que puedes usarlos. No imprimimos
+        contenido ofensivo, ilegal o que vulnere derechos de otras personas; si un pedido lo tuviera, lo cancelamos y te
+        devolvemos el dinero.
       </p>
 
       <h2>Alergias</h2>

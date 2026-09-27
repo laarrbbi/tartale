@@ -37,7 +37,7 @@ export async function openCheckout(order: Order): Promise<{ url: string }> {
   const lines = [
     {
       name: `Tarta ${order.cakeName} (${SIZES[order.size].label.toLowerCase()})`,
-      description: order.hasPhoto ? 'Con tu foto y tu frase encima' : 'Con tu frase encima',
+      description: order.hasDocument ? 'Con tu tarjeta y tu documento impreso en la caja' : 'Con tu tarjeta en la caja',
       unitAmountCents: order.priceCents,
     },
   ];

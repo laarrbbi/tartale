@@ -4,9 +4,9 @@ import test, { after, afterEach, before, beforeEach } from 'node:test';
 import { addDays, madridToday, weekday } from '../src/lib/dates';
 import { env } from '../src/lib/env';
 import { findCake, listCakes } from '../src/server/repositories/catalog';
-import { findOrderByPublicId, getOrderPhoto } from '../src/server/repositories/orders';
+import { eraseOrder, findOrderByPublicId, getOrderDocument } from '../src/server/repositories/orders';
 import { saveSettings, DEFAULT_SETTINGS } from '../src/server/repositories/settings';
-import { decodePhoto, placeOrder, retryPayment } from '../src/server/services/order-service';
+import { decodeDocument, documentFilename, placeOrder, retryPayment } from '../src/server/services/order-service';
 import { orderInputSchema } from '../src/server/validation/schemas';
 
 import { installFakeStripe, type FakeStripe } from './fake-stripe';
@@ -39,9 +39,9 @@ async function form(overrides: Record<string, unknown> = {}) {
   return orderInputSchema.parse({
     cakeId: await lotusId(),
     size: 'mediana',
-    photo: null,
-    cakeText: '¿Un café esta semana? ☕',
     allergies: '',
+    cardDesign: 'mano',
+    document: null,
     occasion: 'inversor',
     recipientName: 'Marta Ruiz',
     recipientCompany: 'Fondo Mediterráneo',
@@ -162,50 +162,62 @@ test('rate limit: the ninth order from one connection in ten minutes is refused'
   assert.deepEqual(await placeOrder(await form(), same), { ok: false, reason: 'rate_limited' });
 });
 
-test('the photo: only real image bytes are kept, and only where the bakery prints', async () => {
-  const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(400, 7)]);
-  const placed = await placeOrder(await form({ photo: `data:image/jpeg;base64,${jpeg.toString('base64')}` }), ip());
+const PDF = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(400, 32), Buffer.from('%%EOF')]);
+const asDataUrl = (bytes: Buffer, mime: string) => `data:${mime};base64,${bytes.toString('base64')}`;
+
+test('the card: its design is stored, and nothing is written on the cake', async () => {
+  const placed = await placeOrder(await form({ cardDesign: 'color' }), ip());
   assert.ok(placed.ok);
   const order = await findOrderByPublicId(placed.publicId);
-  assert.equal(order?.hasPhoto, true);
-  const photo = await getOrderPhoto(order!.id);
-  assert.equal(photo?.mime, 'image/jpeg');
-  assert.equal(photo?.bytes.length, jpeg.length);
+  assert.equal(order?.cardDesign, 'color');
+  assert.equal(order?.hasDocument, false);
+  assert.equal(orderInputSchema.safeParse({ ...(await form()), cardDesign: 'neon' }).success, false);
+  // What a client sends about the cake's top is simply not read.
+  const withText = orderInputSchema.parse({ ...(await form()), cakeText: 'hola', photo: 'data:image/png;base64,AAAA' });
+  assert.equal('cakeText' in withText || 'photo' in withText, false);
+});
 
-  // An HTML page dressed up as a PNG.
-  const html = Buffer.from(`<html><script>alert(1)</script>${' '.repeat(200)}</html>`).toString('base64');
-  assert.deepEqual(await placeOrder(await form({ photo: `data:image/png;base64,${html}` }), ip()), {
+test('the document for the box: only a real PDF, JPEG or PNG, at most 3 MB, under a clean name', async () => {
+  const placed = await placeOrder(await form({ document: { name: 'C:\\Users\\ana\\CV final.PDF', data: asDataUrl(PDF, 'application/pdf') } }), ip());
+  assert.ok(placed.ok);
+  const order = await findOrderByPublicId(placed.publicId);
+  assert.equal(order?.hasDocument, true);
+  const doc = await getOrderDocument(order!.id);
+  assert.equal(doc?.mime, 'application/pdf');
+  assert.equal(doc?.filename, 'CV final.pdf');
+  assert.equal(doc?.bytes.length, PDF.length);
+
+  // An HTML page dressed up as a PDF.
+  const html = Buffer.from(`<html><script>alert(1)</script>${' '.repeat(200)}</html>`);
+  assert.deepEqual(await placeOrder(await form({ document: { name: 'cv.pdf', data: asDataUrl(html, 'application/pdf') } }), ip()), {
     ok: false,
-    reason: 'photo',
-    field: 'photo',
+    reason: 'document',
+    field: 'document',
   });
-  // Too big once decoded.
-  assert.equal(decodePhoto(`data:image/jpeg;base64,${Buffer.concat([jpeg, Buffer.alloc(1_600_000)]).toString('base64')}`), null);
-  // Not a data URL at all.
-  assert.equal(decodePhoto('https://evil.example/x.jpg'), null);
-  // A PNG and a WebP are recognised by their signatures.
+  // Too big once decoded; not a data URL; a JPEG and a PNG by their signatures.
+  assert.equal(decodeDocument({ name: 'big.pdf', data: asDataUrl(Buffer.concat([PDF, Buffer.alloc(3_000_000)]), 'application/pdf') }), null);
+  assert.equal(decodeDocument({ name: 'x.pdf', data: 'https://evil.example/x.pdf' }), null);
+  const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(400, 7)]);
+  assert.equal(decodeDocument({ name: 'foto.jpeg', data: asDataUrl(jpeg, 'image/jpeg') })?.filename, 'foto.jpg');
   const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(200)]);
-  assert.equal(decodePhoto(`data:image/png;base64,${png.toString('base64')}`)?.mime, 'image/png');
-  const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBP'), Buffer.alloc(200)]);
-  assert.equal(decodePhoto(`data:image/webp;base64,${webp.toString('base64')}`)?.mime, 'image/webp');
+  assert.equal(decodeDocument({ name: 'x', data: asDataUrl(png, 'application/octet-stream') })?.mime, 'image/png');
+  assert.equal(documentFilename('../../etc/"pass<wd>".pdf', 'pdf'), 'passwd.pdf');
+  assert.equal(documentFilename('   ', 'png'), 'documento.png');
 
-  await sqlRun('update bakeries set prints_photos = false');
-  assert.deepEqual(await placeOrder(await form({ photo: `data:image/jpeg;base64,${jpeg.toString('base64')}` }), ip()), {
-    ok: false,
-    reason: 'no_photo',
-    field: 'photo',
-  });
+  // It goes with the order's people.
+  assert.equal(await eraseOrder(order!.id), true);
+  assert.equal(await getOrderDocument(order!.id), null);
+  assert.equal((await findOrderByPublicId(placed.publicId))?.hasDocument, false);
 });
 
 test('when Stripe cannot open the payment page, no order is left behind', async () => {
   stripe.failWith = 503;
-  const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(400, 7)]);
-  assert.deepEqual(await placeOrder(await form({ photo: `data:image/jpeg;base64,${jpeg.toString('base64')}` }), ip()), {
+  assert.deepEqual(await placeOrder(await form({ document: { name: 'cv.pdf', data: asDataUrl(PDF, 'application/pdf') } }), ip()), {
     ok: false,
     reason: 'payment_unavailable',
   });
   assert.equal(await countRows('orders'), 0);
-  assert.equal(await countRows('order_photos'), 0);
+  assert.equal(await countRows('order_documents'), 0);
 });
 
 test('without a Stripe key the shop takes no orders', async () => {
@@ -237,6 +249,6 @@ test('the form: required fields, lengths and a postcode, in Spanish', () => {
   for (const f of ['cakeId', 'size', 'occasion', 'postalCode', 'recipientName', 'address', 'deliverOn', 'senderName', 'senderPhone', 'senderEmail', 'recipientConsent']) {
     assert.ok(fields.has(f), `expected an error on ${f}`);
   }
-  const long = orderInputSchema.safeParse({ cakeText: 'x'.repeat(61) });
-  assert.ok(!long.success && long.error.issues.some((i) => i.path[0] === 'cakeText'));
+  const long = orderInputSchema.safeParse({ cardMessage: 'x'.repeat(301) });
+  assert.ok(!long.success && long.error.issues.some((i) => i.path[0] === 'cardMessage'));
 });
