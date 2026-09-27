@@ -384,6 +384,273 @@ details[open] .faq-plus {
   print-color-adjust: exact;
 }
 
+/* --------------------------------------------------------------------------
+   Home page
+   -------------------------------------------------------------------------- */
+
+/* The order ticket: thin paper with a punched edge top and bottom. */
+.ticket {
+  --ticket-bg: #fffdf7;
+  --under: var(--vanilla);
+  background: var(--ticket-bg);
+  box-shadow:
+    0 1px 1px rgb(43 24 16 / 0.06),
+    0 22px 38px -24px rgb(43 24 16 / 0.45);
+}
+.ticket::before,
+.ticket::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background-image: radial-gradient(circle at 7px 50%, var(--under) 4px, transparent 4.5px);
+  background-size: 14px 8px;
+  background-repeat: repeat-x;
+}
+.ticket::before {
+  top: -4px;
+}
+.ticket::after {
+  bottom: -4px;
+}
+
+/* A card lying on the table: it straightens a little under the pointer. */
+@media (hover: hover) and (pointer: fine) {
+  .on-table {
+    transition: transform 260ms var(--ease-out-strong);
+  }
+  .on-table:hover {
+    transform: rotate(0deg) translateY(-6px) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .on-table,
+  .on-table:hover {
+    transition: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Motion on the home page
+
+   A marketing page people see once or twice, so it can tell its story with
+   motion: the words rise on arrival, the ticket prints and gets written on,
+   the cards are dealt. Each moves only transform, opacity and clip-path,
+   fires once, and keeps to the curves above. Hidden states apply only when
+   JavaScript runs (html.js, set in the <head>), so without it everything is
+   simply there. Reduced motion keeps the fades and drops the movement.
+   -------------------------------------------------------------------------- */
+
+@theme {
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Over the film the headline can be bigger than elsewhere. */
+.hero-title {
+  font-size: clamp(2.6rem, 10.5vw, 5.4rem);
+}
+
+/* The headline, word by word, the moment the page opens. */
+.word-mask {
+  display: inline-block;
+  overflow: clip;
+  overflow-clip-margin: 0.12em;
+  vertical-align: top;
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+}
+.word {
+  display: inline-block;
+  animation: word-rise 900ms var(--ease-out-strong) both;
+  animation-delay: calc(120ms + var(--i, 0) * 55ms);
+}
+@keyframes word-rise {
+  from {
+    transform: translateY(105%);
+  }
+}
+
+/* The film's overlays tell the rest of the story, in order: it arrives, the
+   box lands, the card is read, the phone rings. Delays come from --d (ms). */
+.hero-tick {
+  animation: hero-tick-in 700ms var(--ease-out-strong) both;
+  animation-delay: calc(var(--d, 0) * 1ms);
+}
+@keyframes hero-tick-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+.hero-card {
+  animation: hero-card-in 1000ms var(--ease-out-strong) both;
+  animation-delay: calc(var(--d, 0) * 1ms);
+}
+@keyframes hero-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(24%) rotate(4deg) scale(0.96);
+  }
+}
+/* The ringing dot on "te llama": a ring that grows and fades, forever. */
+.ring-dot {
+  position: relative;
+}
+.ring-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: currentColor;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ring-dot::after {
+    animation: ring 1.6s var(--ease-out-strong) infinite;
+  }
+}
+@keyframes ring {
+  from {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+
+/* Scroll-driven, where supported: the film eases back as the page moves on. */
+@supports (animation-timeline: view()) {
+  .hero-film {
+    animation: hero-film-drift linear both;
+    animation-timeline: view();
+    animation-range: exit 0% exit 100%;
+  }
+  @keyframes hero-film-drift {
+    to {
+      transform: scale(1.08) translateY(6%);
+    }
+  }
+}
+
+/* Reveals, fired once by components/motion/reveal-on-scroll.tsx. */
+html.js [data-reveal='rise']:not([data-shown]) {
+  opacity: 0;
+  transform: translateY(18px);
+}
+html.js [data-reveal='rise'] {
+  transition:
+    opacity 800ms var(--ease-out-strong),
+    transform 800ms var(--ease-out-strong);
+  transition-delay: calc(var(--d, 0) * 1ms);
+}
+
+html.js [data-reveal='stagger']:not([data-shown]) > * {
+  opacity: 0;
+  transform: translateY(14px);
+}
+html.js [data-reveal='stagger'] > * {
+  transition:
+    opacity 700ms var(--ease-out-strong),
+    transform 700ms var(--ease-out-strong);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+
+/* The ticket prints line by line, and the pen follows. */
+html.js [data-reveal='print']:not([data-shown]) .print-line {
+  clip-path: inset(0 100% 0 0);
+}
+html.js [data-reveal='print'] .print-line {
+  transition: clip-path 520ms var(--ease-out-strong);
+  transition-delay: calc(var(--i, 0) * 140ms);
+}
+html.js [data-reveal='print']:not([data-shown]) .pen {
+  clip-path: inset(-20% 100% -20% 0);
+}
+html.js [data-reveal='print'] .pen {
+  transition: clip-path 900ms var(--ease-in-out-strong);
+  transition-delay: calc(350ms + var(--i, 0) * 140ms);
+}
+
+/* Cards dealt onto the table. */
+html.js [data-reveal='deal']:not([data-shown]) > * {
+  opacity: 0;
+  transform: translateY(70px) rotate(7deg);
+}
+html.js [data-reveal='deal'] > * {
+  transition:
+    opacity 900ms var(--ease-out-strong),
+    transform 900ms var(--ease-out-strong);
+  transition-delay: calc(var(--i, 0) * 110ms);
+}
+
+/* Big lines rising out of their own baseline. */
+html.js [data-reveal='mask']:not([data-shown]) .mask-line > span {
+  transform: translateY(105%);
+}
+html.js [data-reveal='mask'] .mask-line > span {
+  display: inline-block;
+  transition: transform 1000ms var(--ease-out-strong);
+  transition-delay: calc(var(--i, 0) * 90ms);
+}
+.mask-line {
+  overflow: clip;
+  overflow-clip-margin: 0.1em;
+}
+
+/* The sent folder fills, then the reply drops in. */
+html.js [data-reveal='mail']:not([data-shown]) .mail-row {
+  opacity: 0;
+  transform: translateY(8px);
+}
+html.js [data-reveal='mail'] .mail-row {
+  transition:
+    opacity 500ms var(--ease-out-strong),
+    transform 500ms var(--ease-out-strong);
+  transition-delay: calc(var(--i, 0) * 260ms);
+}
+html.js [data-reveal='mail']:not([data-shown]) .mail-silence {
+  opacity: 0;
+}
+html.js [data-reveal='mail'] .mail-silence {
+  transition: opacity 600ms ease;
+  transition-delay: 1000ms;
+}
+html.js [data-reveal='mail']:not([data-shown]) .mail-pen {
+  clip-path: inset(-20% 100% -20% 0);
+}
+html.js [data-reveal='mail'] .mail-pen {
+  transition: clip-path 1100ms var(--ease-in-out-strong) 1500ms;
+}
+html.js [data-reveal='mail']:not([data-shown]) .mail-reply {
+  opacity: 0;
+  transform: translateY(-28px) scale(0.97);
+}
+html.js [data-reveal='mail'] .mail-reply {
+  transition:
+    opacity 500ms var(--ease-drawer),
+    transform 600ms var(--ease-drawer);
+  transition-delay: 2500ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .word,
+  .hero-card,
+  .hero-tick {
+    animation: fade-in 400ms ease both;
+    animation-delay: calc(var(--d, 0) * 0.5ms);
+  }
+  .hero-film {
+    animation: none;
+  }
+  html.js [data-reveal] *,
+  html.js [data-reveal] {
+    transform: none !important;
+    clip-path: none !important;
+  }
+}
+
 /* The halo under a city's pin on /zonas: a slow ring, so the map reads as live. */
 .map-ping {
   transform-box: fill-box;

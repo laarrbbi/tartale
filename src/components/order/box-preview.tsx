@@ -43,7 +43,7 @@ export function BoxPreview({
         <div
           role="img"
           aria-label={`El documento impreso: ${documentName}`}
-          className="absolute bottom-[6%] right-[8%] flex aspect-[210/297] w-[28%] -rotate-[7deg] flex-col gap-[7%] bg-white px-[9%] pt-[12%] shadow-[0_10px_22px_-12px_rgb(43_24_16_/_0.45)] ring-1 ring-black/5"
+          className="absolute bottom-[22%] right-[3%] flex aspect-[210/297] w-[28%] -rotate-[6deg] flex-col gap-[7%] bg-white px-[9%] pt-[12%] shadow-[0_10px_22px_-12px_rgb(43_24_16_/_0.45)] ring-1 ring-black/5"
         >
           <span className="block h-[3%] w-[70%] rounded-full bg-ink/25" />
           <span className="block h-[2%] w-full rounded-full bg-ink/10" />

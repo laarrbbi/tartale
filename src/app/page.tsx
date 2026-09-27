@@ -1,14 +1,21 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
-import { CakePreview } from '@/components/cake/cake-preview';
+import { CardPreview } from '@/components/card/card-preview';
 import { ChatCompare } from '@/components/landing/chat-compare';
+import { HeroFilm } from '@/components/landing/hero-film';
+import { OrderTicket, type TicketLine } from '@/components/landing/order-ticket';
+import { RevealOnScroll } from '@/components/motion/reveal-on-scroll';
+import { BoxPreview } from '@/components/order/box-preview';
 import { SiteFooter } from '@/components/site/site-footer';
 import { SiteHeader } from '@/components/site/site-header';
 import { ButtonLink } from '@/components/ui/button';
 import { LEGAL } from '@/lib/brand';
+import { ORDER_DOCUMENT, type CardDesign } from '@/lib/cards';
 import { RETENTION_DAYS } from '@/lib/constants';
-import { formatEuros, fromPrice } from '@/lib/orders';
+import { formatBytes } from '@/lib/format';
+import { formatEuros, fromPrice, priceFor } from '@/lib/orders';
 import { whatsappLink } from '@/lib/whatsapp';
 import { formatPostcodes } from '@/lib/zones';
 import { DEFAULT_SETTINGS, getSettings, type Settings } from '@/server/repositories/settings';
@@ -25,212 +32,353 @@ async function load(): Promise<{ menus: PublicMenu[]; settings: Settings }> {
   }
 }
 
-const STEPS = [
-  {
-    title: 'Diseñas la tarta',
-    body: 'Sube una foto —un logo, una foto vuestra, un meme— y escribe la frase que irá encima. Ves cómo queda mientras escribes.',
-  },
-  {
-    title: 'Dices a quién y cuándo',
-    body: 'Su nombre, su oficina y el día. Eliges mañana o tarde y escribes la tarjeta que la acompaña, firmada o anónima.',
-  },
-  {
-    title: 'La horneamos y se la llevamos',
-    body: 'Una pastelería de la ciudad la prepara y la entrega en su oficina. Tú sigues el pedido desde un enlace privado.',
-  },
-] as const;
+/** A custom property for the motion in globals.css (a delay, an index). */
+const vars = (values: Record<string, number>) => values as CSSProperties;
 
-const SAMPLES = [
-  { photo: '/samples/ronda.svg', text: '¿15 minutos para una demo?', who: 'Para un inversor', card: 'Nos encantaría contarte lo que estamos construyendo.' },
-  { photo: '/samples/logo.svg', text: 'Gracias por este año 🙏', who: 'Para un cliente', card: 'Gracias por confiar en nosotros.' },
-  { photo: '/samples/meme.svg', text: 'Me encantaría trabajar con vosotros', who: 'Para recruiting', card: 'Una forma dulce de presentarme.' },
-  { photo: '/samples/equipo.svg', text: '¡Feliz cumple, Marta! 🎂', who: 'Para el equipo', card: 'De parte de todos, que cumplas muchos más.' },
-] as const;
+/** Each word in its own mask, rising in turn; screen readers get the sentence as it is. */
+function Words({ text, from = 0 }: { text: string; from?: number }) {
+  return text.split(' ').map((word, i) => (
+    <span key={i}>
+      {i > 0 ? ' ' : null}
+      <span className="word-mask">
+        <span className="word" style={vars({ '--i': from + i })}>
+          {word}
+        </span>
+      </span>
+    </span>
+  ));
+}
+
+/** What people send: illustrations of the idea, not orders or quotes. */
+const EXAMPLES: {
+  photo: string;
+  text: string;
+  card: { design: CardDesign; to: string; message: string; signOff: string };
+  document?: string;
+  caption: string;
+  tilt: string;
+}[] = [
+  {
+    photo: '/samples/logo.svg',
+    text: '¿Un café esta semana?',
+    card: { design: 'clasica', to: 'Marta', message: 'Nos encantaría contarte lo que estamos construyendo.', signOff: 'Pablo, de Nubo' },
+    caption: 'para un inversor',
+    tilt: '-2deg',
+  },
+  {
+    photo: '/samples/meme.svg',
+    text: 'Mejor que otro email',
+    card: { design: 'mano', to: 'Lucía', message: 'Me encantaría trabajar con vosotras. Mi CV va en la caja.', signOff: 'Andrés' },
+    document: 'CV_Andres.pdf',
+    caption: 'con el CV dentro',
+    tilt: '1.5deg',
+  },
+  {
+    photo: '/samples/equipo.svg',
+    text: '¡Feliz cumple, Marta!',
+    card: { design: 'color', to: 'Marta', message: 'De parte de todo el equipo. Que cumplas muchos más.', signOff: 'Nubo' },
+    caption: 'para el equipo',
+    tilt: '-1deg',
+  },
+];
 
 const AUDIENCES = [
-  { title: 'Ventas', lead: 'El cliente que no contesta', body: 'Algo que no se queda en la bandeja de entrada y que llega con tu nombre.' },
-  { title: 'Fundadores', lead: 'El inversor al que quieres llegar', body: 'Tu logo, una frase con gancho y un motivo para responder.' },
-  { title: 'Recruiting', lead: 'Candidatos y reclutadores', body: 'Preséntate —o da la bienvenida— de una forma que se recuerde.' },
-  { title: 'Alianzas', lead: 'Tu futuro socio', body: 'Empieza la conversación con algo que se comparte en la oficina.' },
+  'Para el cliente que no contesta.',
+  'Para el inversor al que quieres llegar.',
+  'Para la empresa donde quieres trabajar.',
+  'Para el socio con el que quieres empezar.',
 ] as const;
 
 export default async function HomePage() {
   const { menus, settings } = await load();
+  const menu = menus[0] ?? null;
   const cities = citiesOf(menus);
   const cakes = menus.flatMap((m) => m.cakes);
+  const bakery = menu?.bakery.name ?? null;
+  const city = menu?.city ?? 'Alicante';
+
   const cheapest = cakes.map((c) => fromPrice(c.prices)).filter((p): p is number => p !== null);
   const fromCents = cheapest.length ? Math.min(...cheapest) : null;
   const deliveries = [...new Set(cities.flatMap((c) => c.deliveryCents))].sort((a, b) => a - b);
-  const cityNames = cities.map((c) => c.city);
-  const where = cityNames.length ? cityNames.join(', ') : 'Alicante';
+  const menuPhoto = cakes.find((c) => c.name === 'Lotus' && c.photo) ?? cakes.find((c) => c.photo) ?? null;
+  const example = cakes.find((c) => c.name === 'Lotus') ?? cakes.find((c) => priceFor(c.prices, 'mediana') !== null) ?? null;
+  const examplePrice = example ? priceFor(example.prices, 'mediana') : null;
+  const exampleTotal = examplePrice !== null && deliveries.length ? examplePrice + deliveries[0]! : null;
+
   const contact = whatsappLink(settings.whatsappNumber, 'Hola, queremos tartas para los cumpleaños del equipo');
   const contactEmail = LEGAL.email ? `mailto:${LEGAL.email}?subject=Cumplea%C3%B1os%20del%20equipo` : null;
   const notice =
-    settings.minNoticeDays === 0
-      ? 'para hoy mismo'
-      : settings.minNoticeDays === 1
-        ? 'para mañana'
-        : `con ${settings.minNoticeDays} días de antelación`;
+    settings.minNoticeDays === 0 ? 'para hoy mismo' : settings.minNoticeDays === 1 ? 'para mañana' : `con ${settings.minNoticeDays} días de antelación`;
 
-  const priceLine =
-    fromCents !== null && deliveries.length
-      ? `Tarta desde ${formatEuros(fromCents)} · entrega ${deliveries.map(formatEuros).join(' o ')}`
-      : null;
+  const ticket: TicketLine[] = [
+    { label: 'Para', value: 'Marta R. · Fondo Mediterráneo', note: 'tú dices a quién' },
+    { label: 'Dónde', value: 'Av. Maisonnave 11, 4ª planta', note: 'a su oficina, o a su casa' },
+    { label: 'Cuándo', value: 'jueves · por la mañana', note: 'el día y la franja que elijas' },
+    {
+      label: 'Tarta',
+      value: example ? `${example.name} · mediana` : 'de la carta · mediana',
+      note: bakery ? `la hace ${bakery}` : 'la hace una pastelería de verdad',
+    },
+    { label: 'Encima', value: 'logo de Nubo + «¿Un café esta semana?»', note: 'impreso en la tarta' },
+    { label: 'Tarjeta', value: 'a mano · «Nos encantaría contarte…»', note: 'la escribes tú' },
+    { label: 'En la caja', value: '+ CV_Pablo_Gil.pdf, impreso', note: '¿tu CV? lo imprimimos' },
+    ...(exampleTotal !== null ? [{ label: 'Total', value: formatEuros(exampleTotal), note: 'y lo sigues desde un enlace' }] : []),
+  ];
+
+  const faq = [
+    {
+      q: '¿Cuánto cuesta?',
+      a:
+        fromCents !== null && deliveries.length
+          ? `La tarta, desde ${formatEuros(fromCents)} según el sabor y el tamaño; la entrega, ${deliveries.map(formatEuros).join(' o ')}. Ves el total antes de pagar.`
+          : 'Depende del sabor y del tamaño, más la entrega. Ves el total antes de pagar.',
+    },
+    {
+      q: '¿Qué lleva la tarta?',
+      a: 'Encima, la foto que subas —un logo, una foto vuestra, un meme— y una frase corta, impresas. Puedes poner solo la frase, o nada.',
+    },
+    {
+      q: '¿Y en la caja?',
+      a: `Tu tarjeta, impresa en el diseño que elijas. Si subes un documento —un CV, una propuesta, un dossier; PDF, JPG o PNG de hasta ${formatBytes(ORDER_DOCUMENT.maxBytes)}—, lo imprimimos y va dentro.`,
+    },
+    { q: '¿Puede ir sin firmar?', a: 'Sí. La tarjeta puede ir anónima: no dirá quién la envía.' },
+    { q: '¿Cómo se paga?', a: 'Con tarjeta al hacer el pedido, en la página segura de Stripe. Si no podemos entregarla, te devolvemos el dinero.' },
+    { q: '¿Con cuánta antelación?', a: `Puedes pedirla ${notice}. Eliges el día y si la quieres por la mañana o por la tarde.` },
+    {
+      q: '¿Y si tiene alguna alergia?',
+      a: 'Dilo en el pedido. Si la pastelería no puede adaptar la tarta, te lo decimos antes de hacerla y te devolvemos el dinero.',
+    },
+    {
+      q: '¿Qué hacéis con sus datos?',
+      a: `Solo los usamos para entregarle la tarta. Nunca le escribimos ni le mandamos publicidad, y ${RETENTION_DAYS.orders} días después de la entrega borramos sus datos, la tarjeta, la foto y el documento.`,
+    },
+    { q: '¿Puedo ver por dónde va?', a: 'Sí: al pagar tienes un enlace privado con el estado del pedido, desde que lo recibimos hasta que se entrega.' },
+    { q: '¿Hacéis los cumpleaños de un equipo?', a: 'Sí, para empresas y bajo petición: nos pasáis la lista una vez y cada tarta se pide sola una semana antes.' },
+  ];
 
   return (
     <>
       <SiteHeader />
-      <main id="main">
+      <main id="main" className="overflow-x-clip">
         {/* ---------------------------------------------------------------- Hero */}
-        <section className="relative overflow-hidden">
-          <div aria-hidden className="pointer-events-none absolute -right-40 -top-40 h-[34rem] w-[34rem] rounded-full bg-brand-soft/70 blur-3xl" />
-          <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-5 pb-16 pt-10 md:grid-cols-[1.1fr_1fr] md:pb-24 md:pt-20">
-            <div className="rise-in">
-              <p className="type-eyebrow">Cold cake · {where}</p>
-              <h1 className="type-hero mt-4 text-balance">
-                Un email se ignora. <em className="text-brand">Una tarta, no.</em>
-              </h1>
-              <p className="type-lead mt-5 max-w-xl text-pretty">
-                Manda una tarta con tu foto y tu mensaje a la oficina de quien quieras: ese cliente que no contesta, un
-                inversor, un reclutador o alguien de tu equipo.
-              </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <ButtonLink href="/enviar" size="lg">
-                  Enviar una tarta
-                </ButtonLink>
-                <Link href="#como-funciona" className="type-body px-2 py-2 text-center font-medium text-ink-muted hover:text-ink">
-                  Cómo funciona ↓
+        <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-[#1a0f0a] text-[#fffaf3]">
+          {/* On a phone the film fills the top and the words sit under it; on a wide screen it fills everything. */}
+          <HeroFilm className="hero-film absolute inset-x-0 top-0 -z-20 h-[62%] w-full object-cover object-[60%_30%] md:inset-0 md:h-full" />
+          {/* Shade where the words are: from the bottom on a phone, from the left on a wide screen. */}
+          <div
+            aria-hidden
+            className="absolute inset-0 -z-10 bg-[linear-gradient(0deg,rgb(26_15_10)_0%,rgb(26_15_10)_40%,rgb(26_15_10/0.55)_52%,rgb(26_15_10/0)_66%)] md:bg-[linear-gradient(90deg,rgb(26_15_10/0.92)_0%,rgb(26_15_10/0.7)_36%,rgb(26_15_10/0)_64%)]"
+          />
+
+          <div className="mx-auto flex min-h-[calc(100svh-4rem)] max-w-6xl flex-col justify-end px-5 pb-12 pt-40 md:min-h-[44rem] md:justify-center md:pb-20 md:pt-20">
+            {/* The rest of the story, as it happens on the other side. Times are an example. */}
+            <ol
+              aria-label="Lo que pasa cuando llega"
+              className="mb-7 flex flex-wrap gap-x-2 gap-y-2 text-[0.8125rem] text-[#f5e6d3] md:absolute md:right-6 md:top-12 md:mb-0 md:flex-col md:items-end md:gap-2 lg:right-10"
+            >
+              {[
+                { time: '10:02', text: 'Llega a su oficina', d: 900 },
+                { time: '10:04', text: 'Abre la caja y lee tu tarjeta', d: 2200 },
+              ].map((tick) => (
+                <li
+                  key={tick.time}
+                  className="hero-tick flex items-center gap-2 rounded-pill bg-[#1a0f0a]/60 px-3 py-1.5 backdrop-blur-[6px]"
+                  style={vars({ '--d': tick.d })}
+                >
+                  <span className="type-numeric font-semibold text-[#fffaf3]">{tick.time}</span>
+                  <span>{tick.text}</span>
+                </li>
+              ))}
+              <li
+                className="hero-tick flex items-center gap-2 rounded-pill bg-[#fffaf3] px-3 py-1.5 font-semibold text-[#1a0f0a] shadow-[var(--shadow-lift)]"
+                style={vars({ '--d': 3600 })}
+              >
+                <span aria-hidden className="ring-dot h-2 w-2 rounded-full bg-[#2e9d5b] text-[#2e9d5b]" />
+                <span className="type-numeric">10:06</span>
+                <span>Te llama</span>
+              </li>
+            </ol>
+
+            <h1 id="hero-title" className="type-hero hero-title max-w-[13ch] text-balance text-[#fffaf3] md:max-w-[11ch]">
+              <Words text="Un email se ignora." />{' '}
+              <span className="italic text-[#f3b6c5]">
+                <Words text="Una tarta, no." from={4} />
+              </span>
+            </h1>
+            <p className="hero-tick mt-6 max-w-[31rem] text-[1.0625rem] leading-relaxed text-pretty text-[#f5e6d3]" style={vars({ '--d': 700 })}>
+              Tu logo o tu foto impresos en una tarta de pastelería, una tarjeta escrita por ti y, si quieres, tu CV en la caja. En su
+              oficina, el día que elijas.
+            </p>
+            <div className="hero-tick mt-8 flex flex-wrap items-center gap-x-6 gap-y-3" style={vars({ '--d': 900 })}>
+              <ButtonLink href="/enviar" size="lg">
+                Enviar una tarta
+              </ButtonLink>
+              <Link href="#como-funciona" className="type-body font-medium text-[#fffaf3] underline decoration-white/40 underline-offset-4 hover:decoration-white">
+                Así es un pedido
+              </Link>
+            </div>
+            {fromCents !== null && deliveries.length ? (
+              <p className="hero-tick mt-6 text-[0.8125rem] text-[#f5e6d3]/75" style={vars({ '--d': 1100 })}>
+                En {city}. Tarta desde {formatEuros(fromCents)}, entrega {deliveries.map(formatEuros).join(' o ')}.{' '}
+                <Link href="/zonas" className="underline underline-offset-2 hover:text-[#fffaf3]">
+                  Dónde entregamos
                 </Link>
-              </div>
-              {priceLine ? <p className="type-caption mt-5">{priceLine} · pago con tarjeta al pedir</p> : null}
-            </div>
-            <div className="rise-in [animation-delay:120ms]">
-              <CakePreview photo="/samples/logo.svg" text="¿Un café esta semana? ☕" className="max-w-[24rem]" label="Ejemplo de tarta con un logo impreso" />
-              <p className="type-caption mt-5 text-center">Ejemplo: tu foto impresa encima y tu frase.</p>
-            </div>
+              </p>
+            ) : null}
+          </div>
+
+          {/* What arrived: the printed cake and the card, landing on the table. */}
+          <div className="hero-card absolute bottom-10 right-6 hidden w-[17rem] rotate-[-4deg] lg:right-10 lg:block xl:w-[19rem]" style={vars({ '--d': 1500 })}>
+            <BoxPreview
+              photo="/samples/logo.svg"
+              cakeText="¿Un café esta semana?"
+              cardDesign="mano"
+              cardMessage="Te dejo la tarta como excusa. ¿Hablamos?"
+              signOff="Pablo"
+              to="Javier"
+            />
           </div>
         </section>
 
-        {/* ------------------------------------------------- Email against cake */}
-        <section aria-labelledby="diferencia" className="bg-surface-sunken/60 py-16 md:py-24">
+        {/* ----------------------------------------------------- Email vs cake */}
+        <section aria-labelledby="emails" className="border-b border-line bg-surface-sunken/70 py-16 md:py-24">
           <div className="mx-auto max-w-5xl px-5">
-            <p className="type-eyebrow">La diferencia</p>
-            <h2 id="diferencia" className="type-display mt-3 max-w-2xl text-balance">
-              Lo que pasa con un email. Y lo que puede pasar con una tarta.
-            </h2>
-            <div className="mt-10">
+            <div data-reveal="rise">
+              <h2 id="emails" className="type-display max-w-xl text-balance">
+                Llevas tres emails sin respuesta.
+              </h2>
+              <p className="type-lead mt-3 max-w-xl text-pretty">Una tarta en su mesa no se queda en la bandeja de entrada.</p>
+            </div>
+            <div className="mt-12">
               <ChatCompare />
             </div>
           </div>
         </section>
 
-        {/* -------------------------------------------------------- How it works */}
-        <section id="como-funciona" aria-labelledby="como" className="scroll-mt-20 py-16 md:py-24">
-          <div className="mx-auto max-w-5xl px-5">
-            <p className="type-eyebrow">Cómo funciona</p>
-            <h2 id="como" className="type-display mt-3 text-balance">Tres pasos, desde el móvil.</h2>
-            <ol className="mt-10 grid gap-4 md:grid-cols-3">
-              {STEPS.map((step, i) => (
-                <li key={step.title} className="rounded-card bg-surface p-6 ring-1 ring-line/70">
-                  <span className="grid h-10 w-10 place-items-center rounded-full bg-chocolate font-display text-lg font-semibold text-ink-inverse">
-                    {i + 1}
-                  </span>
-                  <h3 className="type-title mt-5">{step.title}</h3>
-                  <p className="type-body mt-2 text-pretty text-ink-muted">{step.body}</p>
-                </li>
-              ))}
-            </ol>
+        {/* ------------------------------------------------------ How it works */}
+        <section id="como-funciona" aria-labelledby="pedido" className="scroll-mt-20 bg-vanilla/70 py-16 md:py-24">
+          <div className="mx-auto grid max-w-6xl gap-12 px-5 lg:grid-cols-[18rem_1fr] lg:gap-16">
+            <div data-reveal="rise">
+              <h2 id="pedido" className="type-display text-balance">
+                Así es un pedido
+              </h2>
+              <p className="type-body mt-4 text-pretty text-ink-muted">
+                Un pedido de ejemplo, con nuestras notas al margen. Tú lo rellenas desde el móvil en tres pasos y pagas al final.
+              </p>
+              <ButtonLink href="/enviar" variant="dark" className="mt-7 hidden lg:inline-flex">
+                Hacer el mío
+              </ButtonLink>
+            </div>
+            <OrderTicket title="COMANDA · PEDIDO DE EJEMPLO" lines={ticket} />
           </div>
         </section>
 
-        {/* ------------------------------------------------------------- Samples */}
-        <section aria-labelledby="ideas" className="bg-vanilla/60 py-16 md:py-24">
+        {/* ------------------------------------------------ What is printed */}
+        <section aria-labelledby="impreso" className="py-16 md:py-28">
           <div className="mx-auto max-w-6xl px-5">
-            <p className="type-eyebrow">Ideas</p>
-            <h2 id="ideas" className="type-display mt-3 max-w-2xl text-balance">Una foto, una frase y a quién va.</h2>
-            <p className="type-lead mt-3 max-w-xl text-pretty">Ejemplos de lo que puedes mandar. Tú pones la foto, la frase y la tarjeta.</p>
-            <ul className="mt-10 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
-              {SAMPLES.map((s) => (
-                <li key={s.who} className="hoverable flex flex-col gap-3 rounded-card bg-surface p-3 ring-1 ring-line/70 sm:gap-4 sm:p-5">
-                  <CakePreview photo={s.photo} text={s.text} className="max-w-[15rem]" label={`Ejemplo: ${s.who.toLowerCase()}`} />
-                  <div>
-                    <p className="type-heading text-[0.95rem] sm:text-[1.0625rem]">{s.who}</p>
-                    <p className="type-caption mt-1 hidden italic sm:block">«{s.card}»</p>
-                  </div>
+            <div data-reveal="rise" className="max-w-2xl">
+              <h2 id="impreso" className="type-display text-balance">
+                Tu logo en la tarta. <span className="italic">Tus palabras en la tarjeta.</span>
+              </h2>
+              <p className="type-lead mt-4 text-pretty">
+                Encima imprimimos un logo, una foto o un meme, con una frase corta. Dentro va la tarjeta, en uno de tres diseños, y tu
+                CV si quieres. Lo ves todo mientras lo haces.
+              </p>
+            </div>
+            <ul data-reveal="deal" className="mt-16 grid gap-14 sm:grid-cols-3 sm:gap-6 lg:gap-10">
+              {EXAMPLES.map((ex, i) => (
+                <li key={ex.caption} style={vars({ '--i': i })}>
+                  <figure className="on-table mx-auto w-full max-w-[20rem]" style={{ transform: `rotate(${ex.tilt})` }}>
+                    <BoxPreview
+                      photo={ex.photo}
+                      cakeText={ex.text}
+                      cardDesign={ex.card.design}
+                      cardMessage={ex.card.message}
+                      signOff={ex.card.signOff}
+                      to={ex.card.to}
+                      documentName={ex.document ?? null}
+                    />
+                    <figcaption className="mt-5 text-center font-hand text-[1.5rem] leading-none text-ink-muted">{ex.caption}</figcaption>
+                  </figure>
                 </li>
               ))}
             </ul>
+            <p className="type-caption mt-12 text-center">Ejemplos. La vista previa del pedido te enseña el tuyo.</p>
           </div>
         </section>
 
-        {/* ------------------------------------------------------------- Flavours */}
+        {/* ---------------------------------------------------------- The menu */}
         {cakes.length > 0 ? (
-          <section aria-labelledby="sabores" className="py-16 md:py-24">
-            <div className="mx-auto max-w-6xl px-5">
-              <p className="type-eyebrow">Los sabores</p>
-              <h2 id="sabores" className="type-display mt-3 text-balance">Tartas de verdad, de una pastelería de verdad.</h2>
-              <p className="type-lead mt-3 max-w-2xl text-pretty">
-                {menus.length === 1
-                  ? `En ${menus[0]!.city} las hornea ${menus[0]!.bakery.name}. Precio de la tarta según el tamaño; la entrega se suma aparte.`
-                  : 'Las hornea una pastelería de cada ciudad. Precio de la tarta según el tamaño; la entrega se suma aparte.'}
-              </p>
-              <ul className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-4">
-                {cakes.map((cake) => {
-                  const from = fromPrice(cake.prices);
-                  return (
-                    <li key={cake.id} className="overflow-hidden rounded-card bg-surface ring-1 ring-line/70">
-                      {cake.photo ? (
-                        <Image
-                          src={cake.photo}
-                          alt={`Tarta ${cake.name}`}
-                          width={480}
-                          height={480}
-                          sizes="(min-width: 768px) 25vw, 50vw"
-                          className="aspect-square w-full object-cover"
-                        />
-                      ) : (
-                        <div className="grid aspect-square w-full place-items-center bg-surface-sunken font-display text-3xl text-ink-subtle">🎂</div>
-                      )}
-                      <div className="p-4">
-                        <p className="type-heading text-pretty">{cake.name}</p>
-                        {from !== null ? <p className="type-caption mt-1">desde {formatEuros(from)}</p> : null}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+          <section aria-labelledby="carta" className="border-t border-line py-16 md:py-24">
+            <div className="mx-auto grid max-w-6xl gap-12 px-5 md:grid-cols-[1fr_20rem] md:gap-16">
+              <div>
+                <div data-reveal="rise">
+                  <h2 id="carta" className="type-display text-balance">
+                    {bakery ? `La carta de ${bakery}` : 'La carta'}
+                  </h2>
+                  <p className="type-body mt-3 max-w-xl text-pretty text-ink-muted">
+                    Tartas de pastelería{menu ? `, hechas en ${menu.city}` : ''}. Tres tamaños; el precio que ves es el del más pequeño
+                    {deliveries.length ? ` y la entrega va aparte (${deliveries.map(formatEuros).join(' o ')})` : ''}.
+                  </p>
+                </div>
+                <ul data-reveal="stagger" className="mt-9 flex flex-col">
+                  {cakes.map((cake, i) => {
+                    const from = fromPrice(cake.prices);
+                    return (
+                      <li key={cake.id} className="flex items-center gap-4 border-b border-line py-3.5 first:border-t" style={vars({ '--i': i })}>
+                        {cake.photo ? (
+                          <Image src={cake.photo} alt="" width={96} height={96} className="h-12 w-12 shrink-0 rounded-full object-cover" />
+                        ) : (
+                          <span aria-hidden className="h-12 w-12 shrink-0 rounded-full bg-vanilla" />
+                        )}
+                        <span className="font-display text-[1.2rem] leading-tight">{cake.name}</span>
+                        <span aria-hidden className="mb-1.5 min-w-6 flex-1 self-end border-b border-dotted border-ink/25" />
+                        <span className="type-numeric shrink-0 text-[0.95rem] text-ink-muted">{from !== null ? `desde ${formatEuros(from)}` : ''}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+              {menuPhoto?.photo ? (
+                <figure data-reveal="rise" className="hidden md:block" style={vars({ '--d': 200 })}>
+                  <Image
+                    src={menuPhoto.photo}
+                    alt={bakery ? `Tarta ${menuPhoto.name} de ${bakery}` : `Tarta ${menuPhoto.name}`}
+                    width={930}
+                    height={930}
+                    sizes="20rem"
+                    className="aspect-[4/5] w-full rounded-[4px] object-cover"
+                  />
+                  <figcaption className="type-caption mt-3">
+                    {menuPhoto.name}
+                    {bakery ? `, de ${bakery}` : ''}.
+                  </figcaption>
+                </figure>
+              ) : null}
             </div>
           </section>
         ) : null}
 
-        {/* ----------------------------------------------------------- Audiences */}
-        <section aria-labelledby="para-quien" className="bg-chocolate py-16 text-ink-inverse md:py-24">
-          <div className="mx-auto max-w-6xl px-5">
-            <p className="type-eyebrow text-[#f3b6c5]">Para quién</p>
-            <h2 id="para-quien" className="type-display mt-3 max-w-2xl text-balance">Para cuando un email no basta.</h2>
-            <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {AUDIENCES.map((a) => (
-                <li key={a.title} className="rounded-card bg-white/[0.06] p-6 ring-1 ring-white/10">
-                  <p className="type-eyebrow text-[#f3b6c5]">{a.title}</p>
-                  <p className="type-title mt-3 text-ink-inverse">{a.lead}</p>
-                  <p className="mt-2 text-[0.9375rem] text-pretty text-[#e8d8c6]">{a.body}</p>
+        {/* ---------------------------------------------------------- For whom */}
+        <section aria-label="Para quién" className="bg-chocolate py-16 text-ink-inverse md:py-24">
+          <div className="mx-auto max-w-5xl px-5">
+            <ul data-reveal="mask">
+              {AUDIENCES.map((line, i) => (
+                <li key={line} className="mask-line border-b border-white/10 py-4 font-display text-[clamp(1.5rem,4.6vw,2.6rem)] leading-[1.1] tracking-[-0.015em]">
+                  <span style={vars({ '--i': i })}>{line}</span>
                 </li>
               ))}
+              <li className="mask-line py-4 font-display text-[clamp(1.5rem,4.6vw,2.6rem)] italic leading-[1.1] tracking-[-0.015em] text-[#f3b6c5]">
+                <span style={vars({ '--i': AUDIENCES.length })}>Y para tu equipo, en cada cumpleaños.</span>
+              </li>
             </ul>
-            <div className="mt-4 rounded-card bg-white/[0.06] p-6 ring-1 ring-white/10 md:flex md:items-center md:justify-between md:gap-8">
-              <div>
-                <p className="type-eyebrow text-[#f3b6c5]">Equipos</p>
-                <p className="type-title mt-3 text-ink-inverse">Los cumpleaños del equipo, en automático</p>
-                <p className="mt-2 max-w-2xl text-[0.9375rem] text-pretty text-[#e8d8c6]">
-                  Nos pasas la lista una vez y cada cumpleaños llega su tarta a la oficina, sin que nadie tenga que acordarse.
-                  Solo para empresas, bajo petición.
-                </p>
-              </div>
+            <div className="mt-10 grid gap-6 border-t border-white/10 pt-8 md:grid-cols-[1fr_auto] md:items-end">
+              <p className="max-w-2xl text-[1rem] text-pretty text-[#e8d8c6]">
+                Para empresas, bajo petición: nos pasáis la lista del equipo una vez y cada tarta se pide sola una semana antes de su
+                cumpleaños, con su frase y su tarjeta. Nadie tiene que acordarse.
+              </p>
               {contact || contactEmail ? (
-                <a
-                  href={(contact ?? contactEmail)!}
-                  className="pressable mt-5 inline-flex h-12 shrink-0 items-center rounded-pill bg-surface px-6 font-semibold text-ink md:mt-0"
-                >
+                <a href={(contact ?? contactEmail)!} className="pressable inline-flex h-12 w-fit items-center rounded-pill bg-surface px-6 font-semibold text-ink">
                   Escríbenos
                 </a>
               ) : null}
@@ -238,106 +386,61 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* -------------------------------------------------------------- Cities */}
-        <section aria-labelledby="donde" className="py-16 md:py-24">
-          <div className="mx-auto max-w-5xl px-5">
-            <p className="type-eyebrow">Dónde</p>
-            <h2 id="donde" className="type-display mt-3 text-balance">Dónde entregamos</h2>
-            <ul className="mt-8 grid gap-4 sm:grid-cols-2">
+        {/* ------------------------------------------------------ Where + FAQ */}
+        <section id="preguntas" aria-labelledby="faq" className="scroll-mt-20 py-16 md:py-24">
+          <div className="mx-auto grid max-w-6xl gap-12 px-5 md:grid-cols-[20rem_1fr] md:gap-16">
+            <div data-reveal="rise">
+              <h2 id="faq" className="type-display">
+                Preguntas
+              </h2>
               {cities.length > 0 ? (
-                cities.map((c) => (
-                  <li key={c.city} className="rounded-card bg-surface p-6 ring-1 ring-line/70">
-                    <p className="type-title">{c.city}</p>
-                    <p className="type-body mt-2 text-ink-muted">Códigos postales {formatPostcodes(c.postalCodes).replace(/, ([^,]*)$/, ' y $1')}.</p>
-                    <p className="type-caption mt-2">Entrega: {c.deliveryCents.map(formatEuros).join(' o ')}</p>
-                  </li>
-                ))
-              ) : (
-                <li className="rounded-card bg-surface p-6 ring-1 ring-line/70">
-                  <p className="type-title">Alicante</p>
-                </li>
-              )}
-              <li className="rounded-card border border-dashed border-line-strong p-6">
-                <p className="type-title text-ink-muted">Más ciudades</p>
-                <p className="type-body mt-2 text-ink-muted">Pronto, en más ciudades.</p>
-              </li>
-            </ul>
-          </div>
-        </section>
-
-        {/* ----------------------------------------------------------------- FAQ */}
-        <section id="preguntas" aria-labelledby="faq" className="scroll-mt-20 bg-surface-sunken/60 py-16 md:py-24">
-          <div className="mx-auto max-w-3xl px-5">
-            <p className="type-eyebrow">Preguntas</p>
-            <h2 id="faq" className="type-display mt-3">Lo que suele preguntarse</h2>
-            <div className="mt-8 divide-y divide-line rounded-card bg-surface ring-1 ring-line/70">
-              {[
-                {
-                  q: '¿Cuánto cuesta?',
-                  a:
-                    fromCents !== null && deliveries.length
-                      ? `La tarta cuesta desde ${formatEuros(fromCents)}, según el sabor y el tamaño, y la entrega ${deliveries.map(formatEuros).join(' o ')}. Ves el total antes de pagar.`
-                      : 'Depende del sabor y del tamaño, más la entrega. Ves el total antes de pagar.',
-                },
-                {
-                  q: '¿Cómo se paga?',
-                  a: 'Con tarjeta al hacer el pedido, en la página de pago segura de Stripe. Si no podemos entregarla, te devolvemos el dinero.',
-                },
-                {
-                  q: '¿Con cuánta antelación tengo que pedirla?',
-                  a: `Puedes pedirla ${notice}. Eliges el día y si la quieres por la mañana o por la tarde.`,
-                },
-                {
-                  q: '¿Qué foto puedo poner?',
-                  a: 'Un logo, una foto o un meme: se imprime encima de la tarta. Sube una imagen JPG o PNG; cuanto más nítida, mejor. La vista previa es orientativa.',
-                },
-                {
-                  q: '¿Qué va escrito?',
-                  a: 'Una frase corta encima de la tarta (hasta 60 caracteres) y, aparte, una tarjeta con tu mensaje. Puedes firmarla o mandarla de forma anónima.',
-                },
-                {
-                  q: '¿Y si tiene alguna alergia?',
-                  a: 'Indícalo en el pedido. Si la pastelería no puede adaptarla, te lo decimos antes de hornearla y te devolvemos el dinero.',
-                },
-                {
-                  q: '¿Qué hacéis con los datos de quien la recibe?',
-                  a: `Solo los usamos para entregarle la tarta. Nunca le escribimos ni le mandamos publicidad, y los borramos ${RETENTION_DAYS.orders} días después de la entrega.`,
-                },
-                {
-                  q: '¿Puedo seguir el pedido?',
-                  a: 'Sí. Al pagar tienes un enlace privado donde ves cómo va: recibido, confirmado, en el horno, de camino y entregado.',
-                },
-                {
-                  q: '¿Hacéis cumpleaños para empresas?',
-                  a: 'Sí, bajo petición: nos pasas la lista del equipo y cada tarta se prepara sola una semana antes del cumpleaños. Escríbenos.',
-                },
-              ].map((item) => (
-                <details key={item.q} className="group px-5 py-4 sm:px-6">
-                  <summary className="flex items-center justify-between gap-4 py-1">
-                    <span className="type-heading">{item.q}</span>
-                    <span aria-hidden className="faq-plus grid h-7 w-7 shrink-0 place-items-center rounded-full bg-surface-sunken text-lg leading-none text-ink">
+                <p className="type-body mt-5 text-pretty text-ink-muted">
+                  {cities.map((c) => (
+                    <span key={c.city} className="block">
+                      Repartimos en <strong className="font-semibold text-ink">{c.city}</strong>: códigos postales{' '}
+                      {formatPostcodes(c.postalCodes).replace(/, ([^,]*)$/, ' y $1')}.
+                    </span>
+                  ))}
+                  <Link href="/zonas" className="mt-2 inline-block font-medium text-brand underline underline-offset-2">
+                    Dónde entregamos
+                  </Link>
+                </p>
+              ) : null}
+            </div>
+            <div className="border-t border-line">
+              {faq.map((item) => (
+                <details key={item.q} className="group border-b border-line py-5">
+                  <summary className="flex items-baseline justify-between gap-6">
+                    <span className="font-display text-[1.2rem] leading-snug">{item.q}</span>
+                    <span aria-hidden className="faq-plus shrink-0 text-[1.4rem] font-light leading-none text-ink-muted">
                       +
                     </span>
                   </summary>
-                  <p className="type-body mt-2 text-pretty text-ink-muted">{item.a}</p>
+                  <p className="type-body mt-3 max-w-2xl text-pretty text-ink-muted">{item.a}</p>
                 </details>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ----------------------------------------------------------- Final CTA */}
-        <section className="py-20 md:py-28">
-          <div className="mx-auto flex max-w-3xl flex-col items-center px-5 text-center">
-            <h2 className="type-display text-balance">¿A quién le mandas la primera?</h2>
-            <p className="type-lead mt-4 max-w-xl text-pretty">Verás cómo queda la tarta mientras la diseñas.</p>
-            <ButtonLink href="/enviar" size="lg" className="mt-8">
-              Enviar una tarta
-            </ButtonLink>
+        {/* ------------------------------------------------------------- Close */}
+        <section className="border-t border-line bg-surface-sunken/60">
+          <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-16 md:grid-cols-[1fr_16rem] md:py-20">
+            <div data-reveal="rise">
+              <h2 className="type-display text-balance">¿A quién se la mandas?</h2>
+              <p className="type-lead mt-3 max-w-lg text-pretty">Dinos a quién, diséñala y paga. Lo demás lo hacemos nosotros.</p>
+              <ButtonLink href="/enviar" size="lg" className="mt-8">
+                Enviar una tarta
+              </ButtonLink>
+            </div>
+            <div data-reveal="rise" className="mx-auto w-[13rem] rotate-[4deg] md:w-full" style={vars({ '--d': 150 })}>
+              <CardPreview design="color" to="Marta" message="¿Hablamos el jueves?" signOff="Pablo" className="shadow-[var(--shadow-lift)]" label="Ejemplo de tarjeta" />
+            </div>
           </div>
         </section>
       </main>
       <SiteFooter />
+      <RevealOnScroll />
     </>
   );
 }

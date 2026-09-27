@@ -44,6 +44,10 @@ export default function LegalNoticePage() {
         pertenecen a las pastelerías que las hacen. Lo que escribe y sube cada cliente sigue siendo suyo: solo lo usamos para
         imprimir su tarta, su tarjeta y su documento.
       </p>
+      <p>
+        El vídeo de la portada es de Gustavo Fring, publicado en Pexels con su licencia libre. La persona que aparece no tiene
+        relación con {BRAND.name}.
+      </p>
 
       <h2>Ley aplicable</h2>
       <p>Esta web se rige por la ley española.</p>

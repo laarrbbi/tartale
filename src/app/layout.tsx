@@ -74,10 +74,15 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Belt and braces with `dynamic` above: reading the request makes the route
   // dynamic even if the segment config is ever removed.
-  await headers();
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
 
   return (
-    <html lang="es" className={`${sans.variable} ${display.variable} ${hand.variable}`}>
+    // The inline script below adds "js" before the first paint, so what the
+    // page will animate in can start hidden (and is never hidden without it).
+    <html lang="es" className={`${sans.variable} ${display.variable} ${hand.variable}`} suppressHydrationWarning>
+      <head>
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />
+      </head>
       <body className="min-h-dvh antialiased">
         <a
           href="#main"
