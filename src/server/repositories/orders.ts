@@ -290,6 +290,15 @@ export async function deleteOrder(id: number): Promise<void> {
   await getDb().query('delete from orders where id = $1', [id]);
 }
 
+/** The panel's "Borrar el pedido": only a cancelled order that never moved money (checked here too). */
+export async function deleteCancelledOrder(id: number): Promise<boolean> {
+  const { rowCount } = await getDb().query(
+    `delete from orders where id = $1 and status = 'cancelado' and paid_cents = 0 and refunded_cents = 0`,
+    [id],
+  );
+  return rowCount === 1;
+}
+
 // ---------------------------------------------------------------------------
 // The board
 // ---------------------------------------------------------------------------

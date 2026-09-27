@@ -1,13 +1,15 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
 import { longDate } from '@/lib/dates';
-import { ORDER_LIMITS, SLOT_IDS, STATUSES, formatEuros, nextStatus, type OrderStatus } from '@/lib/orders';
+import { ORDER_LIMITS, SLOT_IDS, STATUSES, canDeleteOrder, formatEuros, nextStatus, type OrderStatus } from '@/lib/orders';
 import { recordAudit } from '@/server/repositories/audit';
 import { findBakery } from '@/server/repositories/catalog';
 import {
+  deleteCancelledOrder,
   eraseOrder,
   findOrderById,
   setManualPayment,
@@ -222,4 +224,29 @@ export async function eraseOrderAction(_previous: ActionState, formData: FormDat
   await audit(begun, 'order.erase', order, 'Datos personales borrados a petición');
   revalidate(order.id);
   return ok('Datos personales borrados. Queda la tarta, el día y el importe, para la contabilidad.');
+}
+
+/** A cancelled order with no money in or out, gone for good: a test, or one made by mistake. */
+export async function deleteOrderAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const begun = await beginMutation(formData, { requireRole: 'owner' });
+  if (isActionState(begun)) return begun;
+  const id = idSchema.safeParse(formData.get('id'));
+  if (!id.success) return fail('Ese pedido ya no existe.');
+  if (String(formData.get('confirm') ?? '').trim().toUpperCase() !== 'BORRAR') {
+    return fail('Escribe BORRAR para confirmarlo.', { confirm: 'Escribe BORRAR' });
+  }
+  const order = await findOrderById(id.data);
+  if (!order) return fail('Ese pedido ya no existe.');
+  if (!canDeleteOrder(order) || !(await deleteCancelledOrder(order.id))) {
+    return fail('Solo se puede borrar un pedido cancelado y en el que no se ha cobrado nada.');
+  }
+  await recordAudit({
+    actorId: begun.session.user.id,
+    actorEmail: begun.session.user.email,
+    action: 'order.delete',
+    detail: `Pedido nº ${order.id} borrado entero (cancelado, sin cobros)`,
+    ipHash: begun.ipHash,
+  });
+  revalidatePath('/admin');
+  redirect('/admin');
 }

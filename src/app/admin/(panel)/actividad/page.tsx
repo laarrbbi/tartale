@@ -17,6 +17,7 @@ const ACTIONS: Record<string, string> = {
   'order.refund_synced': 'Devolución (desde Stripe)',
   'order.payment': 'Cobro por transferencia',
   'order.erase': 'Datos personales borrados',
+  'order.delete': 'Pedido borrado',
   'order.birthday': 'Pedido de cumpleaños creado',
   'retention.run': 'Borrado automático (90 días)',
   'company.create': 'Empresa nueva',

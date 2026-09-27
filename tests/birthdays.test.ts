@@ -5,7 +5,8 @@ import { GET as birthdaysCron } from '../src/app/api/cron/cumpleanos/route';
 import { GET as retentionCron } from '../src/app/api/cron/limpieza/route';
 import { addDays, madridToday } from '../src/lib/dates';
 import { insertBirthdays, insertCompany, listBirthdays, type BirthdayInput } from '../src/server/repositories/birthdays';
-import { findOrderById } from '../src/server/repositories/orders';
+import { canDeleteOrder } from '../src/lib/orders';
+import { deleteCancelledOrder, findOrderById } from '../src/server/repositories/orders';
 import { saveSettings, DEFAULT_SETTINGS } from '../src/server/repositories/settings';
 import { createDueBirthdayOrders } from '../src/server/services/birthday-service';
 import { runRetention } from '../src/server/services/retention-service';
@@ -276,4 +277,22 @@ test('the nightly jobs answer only to Vercel Cron’s secret', async () => {
     assert.equal(((await ok.json()) as { ok: boolean }).ok, true);
   }
   assert.equal((await listBirthdays()).length, 0);
+});
+
+test('deleting an order outright: only a cancelled one that never moved money', async () => {
+  assert.equal(canDeleteOrder({ status: 'cancelado', paidCents: 0, refundedCents: 0 }), true);
+  assert.equal(canDeleteOrder({ status: 'cancelado', paidCents: 5600, refundedCents: 5600 }), false);
+  assert.equal(canDeleteOrder({ status: 'nuevo', paidCents: 0, refundedCents: 0 }), false);
+
+  const paidCancelled = await anOrderDeliveredDaysAgo(-5, 'cancelado'); // paid 56 € in the helper
+  const delivered = await anOrderDeliveredDaysAgo(3, 'entregado');
+  const mistake = await anOrderDeliveredDaysAgo(-5, 'cancelado');
+  await sqlRun('update orders set paid_cents = 0, payment_method = $2, payment_status = $3 where id = $1', [mistake, 'transferencia', 'pendiente']);
+
+  assert.equal(await deleteCancelledOrder(paidCancelled), false, 'money moved: the books need it');
+  assert.equal(await deleteCancelledOrder(delivered), false);
+  assert.equal(await deleteCancelledOrder(mistake), true);
+  assert.equal(await findOrderById(mistake), null);
+  assert.equal(await countRows('order_photos', 'where order_id = $1', [mistake]), 0, 'its photo goes with it');
+  assert.equal(await countRows('orders'), 2);
 });

@@ -177,7 +177,14 @@ function serverActions(): ExportedAction[] {
 }
 
 const OWNER_ONLY_FILES = ['bakery-actions.ts', 'settings-actions.ts', 'team-actions.ts', 'birthday-actions.ts'];
-const OWNER_ONLY_ORDER_ACTIONS = ['cancelOrderAction', 'restoreOrderAction', 'refundOrderAction', 'manualPaymentAction', 'eraseOrderAction'];
+const OWNER_ONLY_ORDER_ACTIONS = [
+  'cancelOrderAction',
+  'restoreOrderAction',
+  'refundOrderAction',
+  'manualPaymentAction',
+  'eraseOrderAction',
+  'deleteOrderAction',
+];
 
 test('every panel action checks origin and CSRF token before anything else', () => {
   const actions = serverActions();

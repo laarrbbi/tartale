@@ -50,6 +50,11 @@ export type OrderStatus = keyof typeof STATUSES;
 export const STATUS_IDS = Object.keys(STATUSES) as OrderStatus[];
 export const STATUS_FLOW: OrderStatus[] = ['nuevo', 'confirmado', 'en_horno', 'en_camino', 'entregado'];
 
+/** A cancelled order with no money in or out can go entirely: a test, or one made by mistake. */
+export function canDeleteOrder(order: { status: OrderStatus; paidCents: number; refundedCents: number }): boolean {
+  return order.status === 'cancelado' && order.paidCents === 0 && order.refundedCents === 0;
+}
+
 export function nextStatus(status: OrderStatus): OrderStatus | null {
   const i = STATUS_FLOW.indexOf(status);
   return i >= 0 && i < STATUS_FLOW.length - 1 ? STATUS_FLOW[i + 1]! : null;

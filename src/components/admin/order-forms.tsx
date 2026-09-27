@@ -6,6 +6,7 @@ import { ORDER_LIMITS, SLOTS, SLOT_IDS, STATUSES, eurosInput, formatEuros, nextS
 import {
   advanceOrderAction,
   cancelOrderAction,
+  deleteOrderAction,
   eraseOrderAction,
   manualPaymentAction,
   refundOrderAction,
@@ -212,6 +213,25 @@ export function EraseOrderForm({ id, csrfToken }: { id: number; csrfToken: strin
           </Field>
           <SubmitButton variant="danger" pendingLabel="Borrando…">
             Borrar los datos personales
+          </SubmitButton>
+          <FormBanner state={state} />
+        </>
+      )}
+    </AdminForm>
+  );
+}
+
+export function DeleteOrderForm({ id, csrfToken }: { id: number; csrfToken: string }) {
+  return (
+    <AdminForm action={deleteOrderAction} csrfToken={csrfToken}>
+      {(state) => (
+        <>
+          <input type="hidden" name="id" value={id} />
+          <Field label="Escribe BORRAR" htmlFor={`delete-${id}`} error={state.fieldErrors?.confirm}>
+            <Input id={`delete-${id}`} name="confirm" autoComplete="off" />
+          </Field>
+          <SubmitButton variant="danger" pendingLabel="Borrando…">
+            Borrar el pedido entero
           </SubmitButton>
           <FormBanner state={state} />
         </>

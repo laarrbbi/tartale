@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { CakePreview } from '@/components/cake/cake-preview';
-import { EraseOrderForm, ManualPaymentForm, RefundForm, StatusControls, UpdateOrderForm } from '@/components/admin/order-forms';
+import { DeleteOrderForm, EraseOrderForm, ManualPaymentForm, RefundForm, StatusControls, UpdateOrderForm } from '@/components/admin/order-forms';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { RETENTION_DAYS } from '@/lib/constants';
@@ -10,7 +10,7 @@ import { env } from '@/lib/env';
 import { longDate } from '@/lib/dates';
 import { actorLabel, formatStamp, formatWhen } from '@/lib/format';
 import { bakeryBrief, mapsLink, senderConfirmation } from '@/lib/messages';
-import { OCCASIONS, ORDER_SOURCES, PAYMENT_METHODS, PAYMENT_STATUSES, SIZES, SLOTS, STATUSES, formatEuros } from '@/lib/orders';
+import { OCCASIONS, ORDER_SOURCES, PAYMENT_METHODS, PAYMENT_STATUSES, SIZES, SLOTS, STATUSES, canDeleteOrder, formatEuros } from '@/lib/orders';
 import { telHref, whatsappLink } from '@/lib/whatsapp';
 import { requireSession } from '@/server/auth/guard';
 import { listAudit } from '@/server/repositories/audit';
@@ -283,6 +283,18 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           )}
         </CardBody>
       </Card>
+
+      {isOwner && canDeleteOrder(order) ? (
+        <Card>
+          <CardHeader
+            title="Borrar el pedido"
+            description="Cancelado y sin ningún cobro: si era una prueba o un error, puede desaparecer del todo (queda anotado en Actividad)."
+          />
+          <CardBody className="pt-2">
+            <DeleteOrderForm id={order.id} csrfToken={session.csrfToken} />
+          </CardBody>
+        </Card>
+      ) : null}
 
       {isOwner && !order.erased ? (
         <Card>
