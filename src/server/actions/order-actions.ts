@@ -8,6 +8,7 @@ import { longDate } from '@/lib/dates';
 import { ORDER_LIMITS, SLOT_IDS, STATUSES, canDeleteOrder, formatEuros, nextStatus, type OrderStatus } from '@/lib/orders';
 import { recordAudit } from '@/server/repositories/audit';
 import { findBakery } from '@/server/repositories/catalog';
+import { orderWasRectified } from '@/server/repositories/invoices';
 import {
   deleteCancelledOrder,
   eraseOrder,
@@ -17,6 +18,7 @@ import {
   updateOrderStaff,
   type Order,
 } from '@/server/repositories/orders';
+import { rectifyAfterChange } from '@/server/services/invoice-service';
 import { refundOrder } from '@/server/services/payment-service';
 import { enumOf, eurosSchema, idSchema, isoDaySchema, optionalText } from '@/server/validation/schemas';
 
@@ -27,6 +29,8 @@ function revalidate(id: number) {
   revalidatePath('/admin');
   revalidatePath(`/admin/pedidos/${id}`);
 }
+
+const actorOf = (begun: Begun) => ({ id: begun.session.user.id, email: begun.session.user.email });
 
 async function audit(begun: Begun, action: string, order: Pick<Order, 'id'>, detail: string | null) {
   await recordAudit({
@@ -88,11 +92,13 @@ export async function cancelOrderAction(_previous: ActionState, formData: FormDa
   let refunded = 0;
   const refundable = order.paidCents - order.refundedCents;
   if (formData.get('refund') === 'true' && order.paymentMethod === 'stripe' && refundable > 0) {
-    const result = await refundOrder(order.id, null);
+    const result = await refundOrder(order.id, null, actorOf(begun));
     if (!result.ok) return fail(`No se ha cancelado: Stripe no ha hecho la devolución (${result.message ?? result.reason}).`);
     refunded = refundable;
   }
   await setOrderStatus(order.id, 'cancelado');
+  // A company order already invoiced: its rectificativa.
+  await rectifyAfterChange(order.id, actorOf(begun));
   await audit(begun, 'order.cancel', order, refunded ? `Devuelto ${formatEuros(refunded)}` : 'Sin devolución');
   revalidate(order.id);
   return ok(refunded ? `Cancelado y devuelto ${formatEuros(refunded)}.` : 'Cancelado.');
@@ -107,6 +113,9 @@ export async function restoreOrderAction(_previous: ActionState, formData: FormD
   const order = await findOrderById(id.data);
   if (!order || order.erased || order.status !== 'cancelado') return fail('Ese pedido no está cancelado.');
   if (order.refundedCents > 0) return fail('Ya se devolvió el dinero: haz un pedido nuevo en vez de recuperarlo.');
+  if (await orderWasRectified(order.id)) {
+    return fail('Su factura ya tiene una rectificativa por la cancelación: haz un pedido nuevo en vez de recuperarlo.');
+  }
   await setOrderStatus(order.id, 'nuevo');
   await audit(begun, 'order.restore', order, 'Cancelado → Nuevo');
   revalidate(order.id);
@@ -122,7 +131,7 @@ export async function refundOrderAction(_previous: ActionState, formData: FormDa
     .safeParse({ id: formData.get('id'), amount: formData.get('amount') ?? '' });
   if (!parsed.success) return fail('Revisa el importe.', toFieldErrors(parsed.error.issues));
 
-  const result = await refundOrder(parsed.data.id, parsed.data.amount);
+  const result = await refundOrder(parsed.data.id, parsed.data.amount, actorOf(begun));
   if (!result.ok) {
     const messages: Record<string, string> = {
       not_found: 'Ese pedido ya no existe.',
@@ -189,6 +198,8 @@ export async function updateOrderAction(_previous: ActionState, formData: FormDa
   if (bakeryId !== order.bakeryId) changes.push('pastelería');
   if (parsed.data.staffNote !== order.staffNote) changes.push('nota');
   if (changes.length) await audit(begun, 'order.update', order, changes.join(', '));
+  // A lower price on an order paid by transfer and already invoiced: its rectificativa.
+  if (deliveryCents < order.deliveryCents) await rectifyAfterChange(order.id, actorOf(begun));
   revalidate(order.id);
 
   const charged = order.paymentMethod === 'stripe' && order.paidCents > 0 && deliveryCents !== order.deliveryCents;
@@ -238,7 +249,7 @@ export async function deleteOrderAction(_previous: ActionState, formData: FormDa
   const order = await findOrderById(id.data);
   if (!order) return fail('Ese pedido ya no existe.');
   if (!canDeleteOrder(order) || !(await deleteCancelledOrder(order.id))) {
-    return fail('Solo se puede borrar un pedido cancelado y en el que no se ha cobrado nada.');
+    return fail('Solo se puede borrar un pedido cancelado, sin ningún cobro y sin factura.');
   }
   await recordAudit({
     actorId: begun.session.user.id,

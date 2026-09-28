@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { PrintButton } from '@/components/admin/print-button';
+import { PrintButton } from '@/components/ui/print-button';
 import { CardPreview } from '@/components/card/card-preview';
 import { CARD_DESIGNS } from '@/lib/cards';
 import { requireSession } from '@/server/auth/guard';

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
  */
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacidad" updated="27 de septiembre de 2026">
+    <LegalPage title="Privacidad" updated="28 de septiembre de 2026">
       <h2>Quién trata tus datos</h2>
       <p>
         <Legal field="name" /> (NIF <Legal field="nif" />), con domicilio en <Legal field="address" />. Para cualquier cosa
@@ -30,6 +30,10 @@ export default function PrivacyPage() {
       </p>
       <p>
         El pago lo gestiona Stripe en su propia página segura: nosotros no vemos ni guardamos los datos de tu tarjeta.
+      </p>
+      <p>
+        Si pides la factura a nombre de una empresa o como autónomo, tratamos también la razón social o tu nombre, el NIF y la
+        dirección fiscal, para emitirla. La base es la obligación legal de facturar (art. 6.1.c RGPD).
       </p>
 
       <h2>Si recibes una tarta</h2>
@@ -52,14 +56,19 @@ export default function PrivacyPage() {
         de su cumpleaños (sin el año) y la dirección donde entregarla, normalmente la de la oficina. Los tratamos por encargo
         de esa empresa (art. 28 RGPD) y solo para preparar y entregar esas tartas. Borramos a cada persona de la lista cuando
         la empresa nos lo pide o deja el servicio; los pedidos ya hechos siguen la regla de los {RETENTION_DAYS.orders} días.
+        Las facturas van a nombre de la empresa, con sus datos fiscales, y nunca llevan el nombre de nadie de la lista.
       </p>
 
       <h2>Cuánto tiempo</h2>
       <ul>
         <li>
           {RETENTION_DAYS.orders} días después de la entrega borramos los nombres, direcciones, teléfonos, emails, mensajes, la
-          foto y el documento del pedido. Conservamos solo qué se vendió, cuándo y por cuánto, porque la ley nos obliga a guardar la
-          contabilidad.
+          foto y el documento del pedido, y los datos que dejaste para la factura. Conservamos solo qué se vendió, cuándo y por
+          cuánto, porque la ley nos obliga a guardar la contabilidad.
+        </li>
+        <li>
+          Las facturas se conservan seis años, como exige el Código de Comercio (art. 30), con los datos del cliente que
+          aparecen en ellas. Nunca llevan los datos de quien recibe la tarta.
         </li>
         <li>Un pedido que no se llega a pagar se borra entero a los {RETENTION_DAYS.unpaidOrders} días.</li>
         <li>Las copias de seguridad, cifradas, se borran solas a los 30 días.</li>

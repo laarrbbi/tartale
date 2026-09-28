@@ -301,10 +301,15 @@ export async function deleteOrder(id: number): Promise<void> {
   await getDb().query('delete from orders where id = $1', [id]);
 }
 
-/** The panel's "Borrar el pedido": only a cancelled order that never moved money (checked here too). */
+/**
+ * The panel's "Borrar el pedido": only a cancelled order that never moved
+ * money and was never invoiced (checked here too: invoices are kept).
+ */
 export async function deleteCancelledOrder(id: number): Promise<boolean> {
   const { rowCount } = await getDb().query(
-    `delete from orders where id = $1 and status = 'cancelado' and paid_cents = 0 and refunded_cents = 0`,
+    `delete from orders
+      where id = $1 and status = 'cancelado' and paid_cents = 0 and refunded_cents = 0 and invoice_id is null
+        and not exists (select 1 from invoice_lines where order_id = orders.id)`,
     [id],
   );
   return rowCount === 1;
@@ -586,11 +591,16 @@ export async function getOrderDocument(orderId: number): Promise<OrderDocument |
 // Retention
 // ---------------------------------------------------------------------------
 
-/** Personal data out; the row stays for the books (what, when, how much). */
+/**
+ * Personal data out; the row stays for the books (what, when, how much). The
+ * fiscal details left for an invoice go too: the invoice keeps its own copy,
+ * as the law requires.
+ */
 export async function eraseOrder(id: number): Promise<boolean> {
   return getDb().transaction(async (tx) => {
     await tx.query('delete from order_photos where order_id = $1', [id]);
     await tx.query('delete from order_documents where order_id = $1', [id]);
+    await tx.query('delete from order_billing where order_id = $1', [id]);
     const { rowCount } = await tx.query(
       `update orders
           set recipient_name = null, recipient_company = null, recipient_phone = null, address = null,

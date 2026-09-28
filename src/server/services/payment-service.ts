@@ -14,6 +14,7 @@ import {
   syncRefundedTotal,
   type Order,
 } from '@/server/repositories/orders';
+import { invoiceAfterPayment, rectifyAfterChange } from '@/server/services/invoice-service';
 import {
   StripeError,
   createCheckoutSession,
@@ -89,6 +90,7 @@ export async function applyCompletedSession(session: CheckoutSession): Promise<O
       target: `order:${orderId}`,
       detail: `${formatEuros(session.amount_total ?? 0)}${mismatch ? ` (el pedido era ${formatEuros(order.totalCents)})` : ''}`,
     });
+    await invoiceAfterPayment(orderId);
   }
   return paid;
 }
@@ -141,6 +143,7 @@ export async function handleStripeEvent(event: StripeEvent): Promise<'handled' |
             target: `order:${order.id}`,
             detail: `Devuelto en total: ${formatEuros(order.refundedCents)}`,
           });
+          await rectifyAfterChange(order.id, { id: null, email: 'stripe' });
         }
       }
       break;
@@ -161,8 +164,13 @@ export type RefundResult =
  * Gives money back through Stripe, all of what is left or part of it. The
  * idempotency key is built from what has been refunded so far, so a double
  * click refunds once, and a second deliberate refund later is still possible.
+ * An invoiced order gets its rectificativa for what went back.
  */
-export async function refundOrder(orderId: number, amountCents: number | null): Promise<RefundResult> {
+export async function refundOrder(
+  orderId: number,
+  amountCents: number | null,
+  actor: { id: number | null; email: string | null } = { id: null, email: null },
+): Promise<RefundResult> {
   const order = await findOrderById(orderId);
   if (!order) return { ok: false, reason: 'not_found' };
   const refundable = order.paidCents - order.refundedCents;
@@ -190,5 +198,7 @@ export async function refundOrder(orderId: number, amountCents: number | null): 
     return { ok: false, reason: 'stripe', message };
   }
   const updated = await recordRefund(order.id, amount);
-  return updated ? { ok: true, order: updated } : { ok: false, reason: 'not_refundable' };
+  if (!updated) return { ok: false, reason: 'not_refundable' };
+  await rectifyAfterChange(order.id, actor);
+  return { ok: true, order: updated };
 }

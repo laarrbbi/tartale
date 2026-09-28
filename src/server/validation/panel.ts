@@ -3,8 +3,10 @@ import { z } from 'zod';
 import { parseBirthdayList, parseDayMonth } from '@/lib/birthdays';
 import { CAKE_PHOTO_PATHS } from '@/lib/cake-photos';
 import { CARD_DESIGN_IDS } from '@/lib/cards';
+import { INVOICE_LIMITS, parseVatRate } from '@/lib/invoices';
 import { ORDER_LIMITS, SIZE_IDS, SLOT_IDS, type AddressKind, type CakeSize } from '@/lib/orders';
 import { normalizeWhatsappNumber } from '@/lib/whatsapp';
+import { isValidTaxId, normalizeTaxId } from '@/lib/tax-id';
 import { isPostcode, parsePostcodes } from '@/lib/zones';
 import type { Role } from '@/types/domain';
 
@@ -19,6 +21,7 @@ import {
   optionalText,
   phoneSchema,
   postcodeSchema,
+  taxIdSchema,
 } from './schemas';
 
 /**
@@ -151,6 +154,73 @@ export const settingsSchema = z
   });
 
 export const deliveryPriceSchema = requiredEuros(200);
+
+// ---------------------------------------------------------------------------
+// Tartale's own details, for the legal pages and the invoices
+// ---------------------------------------------------------------------------
+
+const optionalTaxId = optionalText(30).transform((v, ctx) => {
+  if (v === null) return null;
+  const id = normalizeTaxId(v);
+  if (!isValidTaxId(id)) {
+    ctx.addIssue({ code: 'custom', message: 'Ese NIF no es válido: revisa la letra o el último número' });
+    return z.NEVER;
+  }
+  return id;
+});
+
+const optionalPostcode = optionalText(5).refine((v) => v === null || /^\d{5}$/.test(v), 'Código postal de 5 cifras');
+
+/** "10", "10 %", "10,5": basis points. Blank: not set (and no invoices until it is). */
+const optionalVatRate = optionalText(10).transform((v, ctx) => {
+  if (v === null) return null;
+  const bp = parseVatRate(v);
+  if (bp === null) {
+    ctx.addIssue({ code: 'custom', message: 'Un porcentaje entre 0 y 100' });
+    return z.NEVER;
+  }
+  return bp;
+});
+
+export const businessSchema = z.object({
+  legalName: optionalText(INVOICE_LIMITS.name),
+  taxId: optionalTaxId,
+  address: optionalText(INVOICE_LIMITS.address),
+  postalCode: optionalPostcode,
+  city: optionalText(INVOICE_LIMITS.city),
+  email: optionalEmail,
+  registry: optionalText(200),
+  vatRateBp: optionalVatRate,
+  invoiceNote: optionalMultiline(INVOICE_LIMITS.note),
+});
+
+/** A company's fiscal details: all five, or none at all. */
+export const companyTaxSchema = z
+  .object({
+    taxName: optionalText(INVOICE_LIMITS.name),
+    taxId: optionalText(30),
+    taxAddress: optionalText(INVOICE_LIMITS.address),
+    taxPostalCode: optionalText(5),
+    taxCity: optionalText(INVOICE_LIMITS.city),
+  })
+  .transform((v, ctx) => {
+    if (!v.taxName && !v.taxId && !v.taxAddress && !v.taxPostalCode && !v.taxCity) return null;
+    const checks = {
+      taxName: z.string({ required_error: 'La razón social' }).min(2, 'La razón social'),
+      taxId: taxIdSchema,
+      taxAddress: z.string({ required_error: 'La dirección fiscal' }).min(5, 'La dirección fiscal'),
+      taxPostalCode: postcodeSchema,
+      taxCity: z.string({ required_error: 'La población' }).min(2, 'La población'),
+    };
+    const out: Record<string, string> = {};
+    for (const [field, schema] of Object.entries(checks)) {
+      const parsed = schema.safeParse(v[field as keyof typeof v] ?? undefined);
+      if (parsed.success) out[field] = parsed.data;
+      else ctx.addIssue({ code: 'custom', path: [field], message: parsed.error.issues[0]?.message ?? 'Revisa este dato' });
+    }
+    if (Object.keys(out).length < 5) return z.NEVER;
+    return { name: out.taxName!, taxId: out.taxId!, address: out.taxAddress!, postalCode: out.taxPostalCode!, city: out.taxCity! };
+  });
 
 // ---------------------------------------------------------------------------
 // Team

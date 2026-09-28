@@ -336,6 +336,19 @@ details[open] .faq-plus {
   .no-print {
     display: none !important;
   }
+  @page {
+    size: A4;
+    margin: 16mm 14mm;
+  }
+}
+
+/* An invoice's rules: ink on paper. Unlayered, like the border colour above,
+   which would otherwise win over any utility. */
+.invoice-sheet .invoice-rule {
+  border-color: #1f1712;
+}
+.invoice-sheet .invoice-rule-soft {
+  border-color: #e6ddd3;
 }
 
 @media (prefers-reduced-motion: reduce) {

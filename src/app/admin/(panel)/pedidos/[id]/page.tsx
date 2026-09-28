@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { BoxPreview } from '@/components/order/box-preview';
+import { IssueOrderInvoiceForm } from '@/components/admin/invoice-forms';
 import { DeleteOrderForm, EraseOrderForm, ManualPaymentForm, RefundForm, StatusControls, UpdateOrderForm } from '@/components/admin/order-forms';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { CARD_DESIGNS } from '@/lib/cards';
 import { RETENTION_DAYS } from '@/lib/constants';
 import { env } from '@/lib/env';
 import { longDate } from '@/lib/dates';
+import { INVOICE_SERIES } from '@/lib/invoices';
 import { actorLabel, formatBytes, formatStamp, formatWhen } from '@/lib/format';
 import { bakeryBrief, mapsLink, senderConfirmation } from '@/lib/messages';
 import { OCCASIONS, ORDER_SOURCES, PAYMENT_METHODS, PAYMENT_STATUSES, SIZES, SLOTS, STATUSES, canDeleteOrder, formatEuros } from '@/lib/orders';
@@ -17,6 +19,7 @@ import { requireSession } from '@/server/auth/guard';
 import { listAudit } from '@/server/repositories/audit';
 import { findBakery, listBakeries } from '@/server/repositories/catalog';
 import { findOrderById, getOrderDocumentInfo } from '@/server/repositories/orders';
+import { businessDetails, invoicingGaps, orderInvoicing, type OrderInvoicing } from '@/server/services/invoice-service';
 import { trackingUrl } from '@/server/services/payment-service';
 
 const link = 'type-caption font-medium text-brand underline underline-offset-2';
@@ -29,12 +32,16 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const order = await findOrderById(id);
   if (!order) notFound();
 
-  const [bakery, bakeries, activity, document] = await Promise.all([
+  const [bakery, bakeries, activity, document, invoicing, business] = await Promise.all([
     findBakery(order.bakeryId),
     listBakeries(),
     listAudit({ target: `order:${order.id}`, limit: 50 }),
     order.hasDocument ? getOrderDocumentInfo(order.id) : Promise.resolve(null),
+    // Invoices are the owner's; before the database update that adds them, the card is left out.
+    isOwner ? orderInvoicing(order.id).catch((): OrderInvoicing | null => null) : Promise.resolve(null),
+    businessDetails(),
   ]);
+  const invoiceGaps = invoicingGaps(business);
   const tracking = trackingUrl(order.publicId);
   const photoUrl = `/api/pedidos/${order.publicId}/foto`;
   const awaitingPayment = order.paymentMethod === 'stripe' && (order.paymentStatus === 'pendiente' || order.paymentStatus === 'caducado');
@@ -242,6 +249,59 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           </CardBody>
         </Card>
 
+        {invoicing ? (
+          <Card>
+            <CardHeader title="Factura" description={invoicing.billing ? 'El cliente pidió factura a nombre de su empresa.' : undefined} />
+            <CardBody className="type-body flex flex-col gap-2 pt-2">
+              {invoicing.invoices.map((doc) => (
+                <p key={doc.id} className="flex items-baseline justify-between gap-3">
+                  <Link href={`/admin/facturas/${doc.id}`} className="font-medium underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+                    {doc.number}
+                  </Link>
+                  <span className="type-caption min-w-0 flex-1 truncate">
+                    {INVOICE_SERIES[doc.series].label}
+                    {doc.id === invoicing.current?.id ? ' · vigente' : ''}
+                  </span>
+                  <span className="type-numeric">{formatEuros(doc.totalCents)}</span>
+                </p>
+              ))}
+              {invoicing.billing ? (
+                <p className="type-caption">
+                  {invoicing.billing.name} · NIF {invoicing.billing.taxId} · {invoicing.billing.address}, {invoicing.billing.postalCode}{' '}
+                  {invoicing.billing.city}
+                </p>
+              ) : null}
+              {!invoicing.current && invoicing.invoiceableCents > 0 ? (
+                invoiceGaps.length === 0 ? (
+                  <>
+                    {order.companyId ? (
+                      <p className="type-caption">
+                        Los pedidos de una empresa se pueden juntar en una factura desde{' '}
+                        <Link href={`/admin/cumpleanos/${order.companyId}`} className={link}>
+                          su página
+                        </Link>
+                        .
+                      </p>
+                    ) : null}
+                    <IssueOrderInvoiceForm orderId={order.id} csrfToken={session.csrfToken} />
+                  </>
+                ) : (
+                  <p className="type-caption">
+                    Sin factura: faltan datos en{' '}
+                    <Link href="/admin/ajustes" className={link}>
+                      Ajustes
+                    </Link>{' '}
+                    ({invoiceGaps.join(', ')}).
+                  </p>
+                )
+              ) : null}
+              {invoicing.invoices.length === 0 && invoicing.invoiceableCents === 0 ? (
+                <p className="type-caption">Nada que facturar todavía.</p>
+              ) : null}
+            </CardBody>
+          </Card>
+        ) : null}
+
         {bakery ? (
           <Card>
             <CardHeader title="Pastelería" description={bakery.name} />
@@ -302,7 +362,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         </CardBody>
       </Card>
 
-      {isOwner && canDeleteOrder(order) ? (
+      {isOwner && canDeleteOrder({ ...order, invoiced: (invoicing?.invoices.length ?? 0) > 0 }) ? (
         <Card>
           <CardHeader
             title="Borrar el pedido"

@@ -13,7 +13,6 @@ import { BoxPreview } from '@/components/order/box-preview';
 import { SiteFooter } from '@/components/site/site-footer';
 import { SiteHeader } from '@/components/site/site-header';
 import { ButtonLink } from '@/components/ui/button';
-import { LEGAL } from '@/lib/brand';
 import { ORDER_DOCUMENT, type CardDesign } from '@/lib/cards';
 import { RETENTION_DAYS } from '@/lib/constants';
 import { formatBytes } from '@/lib/format';
@@ -22,6 +21,7 @@ import { whatsappLink } from '@/lib/whatsapp';
 import { formatPostcodes } from '@/lib/zones';
 import { DEFAULT_SETTINGS, getSettings, type Settings } from '@/server/repositories/settings';
 import { citiesOf, publicMenus, type PublicMenu } from '@/server/services/catalog-service';
+import { businessDetails } from '@/server/services/invoice-service';
 
 /** The menus and settings, or nothing if the database is unreachable: the page must still render. */
 async function load(): Promise<{ menus: PublicMenu[]; settings: Settings }> {
@@ -121,7 +121,8 @@ export default async function HomePage() {
   const exampleTotal = examplePrice !== null && deliveries.length ? examplePrice + deliveries[0]! : null;
 
   const contact = whatsappLink(settings.whatsappNumber, 'Hola, queremos tartas para los cumpleaños del equipo');
-  const contactEmail = LEGAL.email ? `mailto:${LEGAL.email}?subject=Cumplea%C3%B1os%20del%20equipo` : null;
+  const { email } = await businessDetails();
+  const contactEmail = email ? `mailto:${email}?subject=Cumplea%C3%B1os%20del%20equipo` : null;
   const notice =
     settings.minNoticeDays === 0 ? 'para hoy mismo' : settings.minNoticeDays === 1 ? 'para mañana' : `con ${settings.minNoticeDays} días de antelación`;
 
@@ -158,6 +159,10 @@ export default async function HomePage() {
     },
     { q: '¿Puede ir sin firmar?', a: 'Sí. La tarjeta puede ir anónima: no dirá quién la envía.' },
     { q: '¿Cómo se paga?', a: 'Con tarjeta al hacer el pedido, en la página segura de Stripe. Si no podemos entregarla, te devolvemos el dinero.' },
+    {
+      q: '¿Me dais factura?',
+      a: 'Sí, en la página de tu pedido. Si la necesitas a nombre de tu empresa, deja sus datos al pedir o después, desde esa misma página.',
+    },
     { q: '¿Con cuánta antelación?', a: `Puedes pedirla ${notice}. Eliges el día y si la quieres por la mañana o por la tarde.` },
     {
       q: '¿Y si tiene alguna alergia?',

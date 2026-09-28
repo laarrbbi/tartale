@@ -1,10 +1,11 @@
 'use client';
 
 import { AdminForm, FormBanner, SubmitButton } from '@/components/admin/form';
-import { Field, Input, Toggle } from '@/components/ui/field';
+import { Field, Input, Textarea, Toggle } from '@/components/ui/field';
 import { WEEKDAYS } from '@/lib/dates';
 import { eurosInput } from '@/lib/orders';
-import { applySchemaUpdatesAction, saveDeliveryPricesAction, saveSettingsAction } from '@/server/actions/settings-actions';
+import { formatVatRate } from '@/lib/invoices';
+import { applySchemaUpdatesAction, saveBusinessAction, saveDeliveryPricesAction, saveSettingsAction } from '@/server/actions/settings-actions';
 
 export interface SettingsFormData {
   ordersEnabled: boolean;
@@ -118,6 +119,77 @@ export function SchemaUpdatesForm({ pending, csrfToken }: { pending: boolean; cs
         <>
           <SubmitButton variant={pending ? 'primary' : 'ghost'} size="sm" pendingLabel="Actualizando…">
             {pending ? 'Actualizar la base de datos' : 'Comprobar otra vez'}
+          </SubmitButton>
+          <FormBanner state={state} />
+        </>
+      )}
+    </AdminForm>
+  );
+}
+
+export interface BusinessFormData {
+  legalName: string | null;
+  taxId: string | null;
+  address: string | null;
+  postalCode: string | null;
+  city: string | null;
+  email: string | null;
+  registry: string | null;
+  vatRateBp: number | null;
+  invoiceNote: string | null;
+}
+
+export function BusinessForm({ business, csrfToken }: { business: BusinessFormData; csrfToken: string }) {
+  const vat = business.vatRateBp === null ? '' : formatVatRate(business.vatRateBp).replace(' %', '');
+  return (
+    <AdminForm action={saveBusinessAction} csrfToken={csrfToken}>
+      {(state) => (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Razón social" htmlFor="legalName" error={state.fieldErrors?.legalName} hint="Tal cual en Hacienda: «Ejemplo, S.L.», o tu nombre completo si eres autónomo.">
+              <Input id="legalName" name="legalName" defaultValue={business.legalName ?? ''} maxLength={120} autoComplete="organization" />
+            </Field>
+            <Field label="NIF" htmlFor="taxId" error={state.fieldErrors?.taxId}>
+              <Input id="taxId" name="taxId" defaultValue={business.taxId ?? ''} maxLength={30} autoCapitalize="characters" />
+            </Field>
+            <Field label="Dirección fiscal" htmlFor="address" error={state.fieldErrors?.address}>
+              <Input id="address" name="address" defaultValue={business.address ?? ''} maxLength={200} autoComplete="street-address" />
+            </Field>
+            <div className="grid grid-cols-[7rem_1fr] gap-3">
+              <Field label="C. postal" htmlFor="postalCode" error={state.fieldErrors?.postalCode}>
+                <Input id="postalCode" name="postalCode" defaultValue={business.postalCode ?? ''} inputMode="numeric" maxLength={5} autoComplete="postal-code" />
+              </Field>
+              <Field label="Población" htmlFor="city" error={state.fieldErrors?.city}>
+                <Input id="city" name="city" defaultValue={business.city ?? ''} maxLength={80} autoComplete="address-level2" />
+              </Field>
+            </div>
+            <Field label="Email de contacto" htmlFor="email" error={state.fieldErrors?.email} hint="Para privacidad, dudas y facturas. Sale en la web.">
+              <Input id="email" name="email" type="email" defaultValue={business.email ?? ''} maxLength={200} />
+            </Field>
+            <Field label="Datos registrales · si es sociedad" htmlFor="registry" error={state.fieldErrors?.registry} hint="Registro Mercantil, tomo, folio, hoja.">
+              <Input id="registry" name="registry" defaultValue={business.registry ?? ''} maxLength={200} />
+            </Field>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
+            <Field
+              label="IVA de las tartas (%)"
+              htmlFor="vatRateBp"
+              error={state.fieldErrors?.vatRateBp}
+              hint="El que te diga tu gestoría. Los precios ya lo incluyen; la factura lo desglosa."
+            >
+              <Input id="vatRateBp" name="vatRateBp" defaultValue={vat} inputMode="decimal" maxLength={10} />
+            </Field>
+            <Field
+              label="Nota al pie de las facturas por transferencia · opcional"
+              htmlFor="invoiceNote"
+              error={state.fieldErrors?.invoiceNote}
+              hint="La cuenta y el plazo, por ejemplo. Las pagadas con tarjeta dicen «Pagada con tarjeta»."
+            >
+              <Textarea id="invoiceNote" name="invoiceNote" defaultValue={business.invoiceNote ?? ''} maxLength={400} rows={2} />
+            </Field>
+          </div>
+          <SubmitButton pendingLabel="Guardando…" className="self-start">
+            Guardar los datos
           </SubmitButton>
           <FormBanner state={state} />
         </>

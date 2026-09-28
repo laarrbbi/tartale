@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Condiciones de compra" updated="27 de septiembre de 2026">
+    <LegalPage title="Condiciones de compra" updated="28 de septiembre de 2026">
       <h2>Qué compras</h2>
       <p>
         Una tarta de la carta de una pastelería asociada de la ciudad de destino, que la prepara y la entrega, con la foto y la
@@ -23,6 +23,11 @@ export default function TermsPage() {
       <p>
         El precio es el que ves antes de pagar: la tarta según el sabor y el tamaño, más la entrega. Los precios incluyen los
         impuestos aplicables. Se paga con tarjeta al hacer el pedido, a través de Stripe.
+      </p>
+      <p>
+        Cada pedido pagado tiene su factura, en la página del pedido: simplificada, o completa a nombre de tu empresa si nos
+        das sus datos al pedir o después, desde esa misma página. Si te devolvemos dinero, la corregimos con una factura
+        rectificativa.
       </p>
 
       <h2>Entrega</h2>

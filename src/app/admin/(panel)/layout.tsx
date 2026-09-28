@@ -20,6 +20,7 @@ const STAFF_NAV: NavItem[] = [
  */
 const OWNER_NAV: NavItem[] = [
   { href: '/admin/cumpleanos', label: 'Cumpleaños' },
+  { href: '/admin/facturas', label: 'Facturas' },
   { href: '/admin/ajustes', label: 'Ajustes' },
   { href: '/admin/equipo', label: 'Equipo' },
   { href: '/admin/actividad', label: 'Actividad' },
@@ -40,7 +41,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-dvh bg-canvas lg:flex">
-      <aside className="hidden shrink-0 border-r border-line bg-surface lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-60 lg:flex-col">
+      <aside className="hidden shrink-0 border-r border-line bg-surface lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-60 lg:flex-col print:hidden">
         <div className="px-6 pb-5 pt-6">
           <Link href="/admin" aria-label="Pedidos">
             <Logo />
@@ -58,7 +59,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
         </div>
       </aside>
 
-      <header className="chrome sticky top-0 z-40 border-b border-line/70 lg:hidden">
+      <header className="chrome sticky top-0 z-40 border-b border-line/70 lg:hidden print:hidden">
         <div className="flex items-center justify-between gap-3 px-4 pt-3">
           <Link href="/admin" aria-label="Pedidos">
             <Logo />
@@ -71,7 +72,7 @@ export default async function PanelLayout({ children }: { children: React.ReactN
       </header>
 
       <main id="main" className="min-w-0 flex-1">
-        <div className="mx-auto max-w-5xl px-4 py-7 lg:px-10 lg:py-10">{children}</div>
+        <div className="mx-auto max-w-5xl px-4 py-7 lg:px-10 lg:py-10 print:max-w-none print:p-0">{children}</div>
       </main>
     </div>
   );

@@ -26,6 +26,8 @@ export interface RateLimitResult {
  *                   opens a payment; nobody legitimately places ten in ten
  *                   minutes from one connection.
  *  - `payment`    — reopening the payment page for an unpaid order.
+ *  - `invoice`    — a customer asking for an invoice in their company's name:
+ *                   once per order is the norm, a typo or two the most.
  *  - `tracking`   — reading a tracking page or its photo. The link cannot be
  *                   guessed (128 bits); this only caps the database load a
  *                   script could cause.
@@ -36,6 +38,7 @@ export interface RateLimitResult {
 export const RULES = {
   order: { name: 'order', limit: 8, windowSeconds: 60 * 10 },
   payment: { name: 'payment', limit: 12, windowSeconds: 60 * 10 },
+  invoice: { name: 'invoice', limit: 6, windowSeconds: 60 * 10 },
   tracking: { name: 'tracking', limit: 240, windowSeconds: 60 * 10 },
   login: { name: 'login', limit: 10, windowSeconds: 60 * 15 },
   adminWrite: { name: 'admin-write', limit: 120, windowSeconds: 60 * 5 },

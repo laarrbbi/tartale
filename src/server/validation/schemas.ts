@@ -3,7 +3,9 @@ import { z } from 'zod';
 import { CARD_DESIGN_IDS, ORDER_DOCUMENT } from '@/lib/cards';
 import { LIMITS } from '@/lib/constants';
 import { isIsoDay } from '@/lib/dates';
+import { INVOICE_LIMITS } from '@/lib/invoices';
 import { OCCASION_IDS, ORDER_LIMITS, ORDER_PHOTO, SIZE_IDS, SLOT_IDS, type AddressKind } from '@/lib/orders';
+import { isValidTaxId, normalizeTaxId } from '@/lib/tax-id';
 
 /**
  * Every value that crosses a trust boundary is parsed here before it reaches
@@ -83,6 +85,32 @@ export const postcodeSchema = z
   .trim()
   .regex(/^\d{5}$/, 'Código postal de 5 cifras');
 
+/** A Spanish NIF, DNI or NIE, written any way ("b-12.345.678"), checked by its control character. */
+export const taxIdSchema = z
+  .string({ required_error: 'El NIF' })
+  .max(30, 'Ese NIF no es válido')
+  .transform(normalizeTaxId)
+  .refine(isValidTaxId, 'Ese NIF no es válido: revisa la letra o el último número');
+
+/** The fiscal details for an invoice in someone's name: a company's or a self-employed person's. */
+export const billingSchema = z.object({
+  name: cleanText(INVOICE_LIMITS.name).pipe(z.string().min(2, 'La razón social, o tu nombre completo')),
+  taxId: taxIdSchema,
+  address: cleanText(INVOICE_LIMITS.address).pipe(z.string().min(5, 'La dirección fiscal')),
+  postalCode: postcodeSchema,
+  city: cleanText(INVOICE_LIMITS.city).pipe(z.string().min(2, 'La población')),
+});
+export type BillingInput = z.infer<typeof billingSchema>;
+
+/** The order form's flat fields for the same details. */
+const BILLING_FIELDS = {
+  name: 'billingName',
+  taxId: 'billingTaxId',
+  address: 'billingAddress',
+  postalCode: 'billingPostalCode',
+  city: 'billingCity',
+} as const;
+
 // ---------------------------------------------------------------------------
 // Public: an order from /enviar
 // ---------------------------------------------------------------------------
@@ -136,10 +164,35 @@ export const orderInputSchema = z.object({
   recipientConsent: checkbox.refine((v) => v, 'Confirma que puedes darnos sus datos para la entrega'),
   marketingOptIn: checkbox,
 
+  // An invoice in a company's name: its details, only when asked for.
+  wantsInvoice: checkbox,
+  billingName: z.string().max(400).nullish(),
+  billingTaxId: z.string().max(400).nullish(),
+  billingAddress: z.string().max(400).nullish(),
+  billingPostalCode: z.string().max(400).nullish(),
+  billingCity: z.string().max(400).nullish(),
+
   // Bots: a field people never see, and the time it took to fill the form in.
   website: z.string().max(200).nullish(),
   elapsedMs: z.coerce.number().int().min(0).max(24 * 60 * 60 * 1000).optional(),
-});
+})
+  .transform(({ wantsInvoice, billingName, billingTaxId, billingAddress, billingPostalCode, billingCity, ...order }, ctx) => {
+    if (!wantsInvoice) return { ...order, billing: null };
+    const billing = billingSchema.safeParse({
+      name: billingName ?? '',
+      taxId: billingTaxId ?? '',
+      address: billingAddress ?? '',
+      postalCode: billingPostalCode ?? '',
+      city: billingCity ?? '',
+    });
+    if (!billing.success) {
+      for (const issue of billing.error.issues) {
+        ctx.addIssue({ code: 'custom', message: issue.message, path: [BILLING_FIELDS[issue.path[0] as keyof typeof BILLING_FIELDS]] });
+      }
+      return z.NEVER;
+    }
+    return { ...order, billing: billing.data };
+  });
 export type OrderInput = z.infer<typeof orderInputSchema>;
 
 // ---------------------------------------------------------------------------

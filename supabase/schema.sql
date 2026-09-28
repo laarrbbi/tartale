@@ -83,7 +83,20 @@ create table if not exists public.settings (
   max_days_ahead   smallint    not null default 365 check (max_days_ahead between 7 and 730),
   closed_weekdays  smallint[]  not null default '{}',
   whatsapp_number  text,
-  updated_at       timestamptz not null default now()
+  updated_at       timestamptz not null default now(),
+  -- Tartale's own details: on every invoice and on the legal pages (Ajustes).
+  legal_name        text,
+  tax_id            text,
+  legal_address     text,
+  legal_postal_code text,
+  legal_city        text,
+  legal_email       text,
+  legal_registry    text,
+  -- The VAT rate of the cakes, in basis points (1000 = 10 %): the owner's
+  -- (or their accountant's) figure. No invoice is issued until it is set.
+  vat_rate_bp       integer check (vat_rate_bp between 0 and 10000),
+  -- Printed at the foot of invoices paid by transfer (bank account, terms).
+  invoice_note      text
 );
 insert into public.settings (id) values (1) on conflict (id) do nothing;
 
@@ -155,10 +168,16 @@ create table if not exists public.companies (
   contact_name  text        not null,
   contact_phone text        not null,
   contact_email text,
-  -- NIF, billing address, how and when they pay: free text for now.
+  -- How and when they pay, and anything else about billing: free text.
   billing_notes text,
   created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now()
+  updated_at    timestamptz not null default now(),
+  -- Their fiscal details, for their invoices.
+  tax_name        text,
+  tax_id          text,
+  tax_address     text,
+  tax_postal_code text,
+  tax_city        text
 );
 
 create table if not exists public.birthdays (
@@ -283,6 +302,110 @@ create table if not exists public.order_documents (
   bytes      bytea       not null,
   created_at timestamptz not null default now()
 );
+
+-- ---------------------------------------------------------------------------
+-- Invoices
+--
+-- Numbered per series and year without gaps (invoice_counters), and final: a
+-- trigger refuses any change or deletion. A refund or a mistake is corrected
+-- with another invoice, a rectificativa (series R). They are kept after the
+-- order's people are erased: the law asks for invoices to be kept for years.
+-- ---------------------------------------------------------------------------
+
+-- The fiscal details a customer leaves with an order for an invoice in their
+-- company's name. Erased with the order's people; the invoice keeps a copy.
+create table if not exists public.order_billing (
+  order_id    bigint      primary key references public.orders(id) on delete cascade,
+  name        text        not null check (length(name) between 1 and 120),
+  tax_id      text        not null check (tax_id ~ '^[A-Z0-9]{9}$'),
+  address     text        not null,
+  postal_code text        not null check (postal_code ~ '^\d{5}$'),
+  city        text        not null,
+  created_at  timestamptz not null default now()
+);
+
+create table if not exists public.invoice_counters (
+  series   text     not null check (series in ('F', 'S', 'R')),
+  year     smallint not null,
+  last_seq integer  not null check (last_seq > 0),
+  primary key (series, year)
+);
+
+-- F: completa (with the customer's name, NIF and address); S: simplificada;
+-- R: rectificativa, which points at the invoice it corrects.
+create table if not exists public.invoices (
+  id               bigint generated always as identity primary key,
+  public_id        text        not null unique check (length(public_id) >= 16),
+  series           text        not null check (series in ('F', 'S', 'R')),
+  year             smallint    not null,
+  seq              integer     not null check (seq > 0),
+  number           text        not null unique,
+  issued_on        date        not null,
+  operation_on     date,
+  issuer_name      text        not null,
+  issuer_tax_id    text        not null,
+  issuer_address   text        not null,
+  customer_name    text,
+  customer_tax_id  text,
+  customer_address text,
+  replaces_id      bigint      references public.invoices(id),
+  rectifies_id     bigint      references public.invoices(id),
+  reason           text,
+  company_id       bigint      references public.companies(id) on delete set null,
+  payment_note     text,
+  base_cents       integer     not null,
+  vat_cents        integer     not null,
+  total_cents      integer     not null,
+  created_by       bigint      references public.admin_users(id) on delete set null,
+  created_at       timestamptz not null default now(),
+  unique (series, year, seq),
+  check ((series = 'R') = (rectifies_id is not null)),
+  check (series <> 'F' or (customer_name is not null and customer_tax_id is not null and customer_address is not null)),
+  check (base_cents + vat_cents = total_cents)
+);
+create index if not exists invoices_issued_idx on public.invoices (issued_on);
+create index if not exists invoices_company_idx on public.invoices (company_id) where company_id is not null;
+create index if not exists invoices_rectifies_idx on public.invoices (rectifies_id) where rectifies_id is not null;
+create index if not exists invoices_replaces_idx on public.invoices (replaces_id) where replaces_id is not null;
+
+create table if not exists public.invoice_lines (
+  invoice_id  bigint   not null references public.invoices(id),
+  position    smallint not null check (position > 0),
+  order_id    bigint   references public.orders(id),
+  description text     not null,
+  quantity    integer  not null default 1 check (quantity > 0),
+  vat_rate_bp integer  not null check (vat_rate_bp between 0 and 10000),
+  base_cents  integer  not null,
+  vat_cents   integer  not null,
+  total_cents integer  not null,
+  primary key (invoice_id, position),
+  check (base_cents + vat_cents = total_cents)
+);
+create index if not exists invoice_lines_order_idx on public.invoice_lines (order_id) where order_id is not null;
+
+-- The order's current invoice (simplificada or completa): what the customer's link shows.
+alter table public.orders add column if not exists invoice_id bigint references public.invoices(id);
+create index if not exists orders_invoice_idx on public.orders (invoice_id) where invoice_id is not null;
+
+-- An issued invoice is never changed or deleted. The only change let through
+-- is the database clearing a link to a company or an account that was deleted.
+create or replace function public.invoices_are_final() returns trigger
+language plpgsql as $$
+begin
+  if tg_op = 'UPDATE' and tg_table_name = 'invoices'
+     and (to_jsonb(new) - 'company_id' - 'created_by') = (to_jsonb(old) - 'company_id' - 'created_by') then
+    return new;
+  end if;
+  raise exception 'Una factura emitida no se cambia ni se borra: se corrige con una rectificativa.';
+end $$;
+
+drop trigger if exists invoices_are_final on public.invoices;
+create trigger invoices_are_final before update or delete on public.invoices
+  for each row execute function public.invoices_are_final();
+
+drop trigger if exists invoice_lines_are_final on public.invoice_lines;
+create trigger invoice_lines_are_final before update or delete on public.invoice_lines
+  for each row execute function public.invoices_are_final();
 
 -- Stripe events already handled, so a retried webhook is applied once.
 create table if not exists public.stripe_events (

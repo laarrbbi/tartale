@@ -6,6 +6,7 @@ import { checkDeliveryDay, type DayProblem } from '@/lib/dates';
 import { ORDER_PHOTO, priceFor, signOffFor } from '@/lib/orders';
 import { getDb } from '@/server/db/pg';
 import { findBakery, findCake, zoneForPostcode } from '@/server/repositories/catalog';
+import { saveOrderBilling } from '@/server/repositories/invoices';
 import {
   deleteOrder,
   findOrderByPublicId,
@@ -184,6 +185,7 @@ export async function placeOrder(input: OrderInput, ip: string | null): Promise<
     );
     if (created && photo) await saveOrderPhoto(created.id, photo.mime, photo.bytes, tx);
     if (created && document) await saveOrderDocument(created.id, document, tx);
+    if (created && input.billing) await saveOrderBilling(created.id, input.billing, tx);
     return created;
   });
   if (!order) return { ok: false, reason: 'rejected' };

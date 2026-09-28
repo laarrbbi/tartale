@@ -58,9 +58,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: '/:path*', headers: securityHeaders },
-      // The tracking link is the key to an order: no index, no referrer.
+      // The tracking link is the key to an order, and an invoice's link to
+      // the invoice: no index, no referrer.
       {
         source: '/pedido/:path*',
+        headers: [...privateHeaders, { key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
+      {
+        source: '/factura/:path*',
         headers: [...privateHeaders, { key: 'Referrer-Policy', value: 'no-referrer' }],
       },
       { source: '/admin/:path*', headers: privateHeaders },

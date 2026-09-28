@@ -66,7 +66,31 @@ async function hasTable(db: Db, table: string): Promise<boolean> {
   return (await one(db, `select 1 from pg_tables where schemaname = 'public' and tablename = $1`, [table])) !== null;
 }
 
+async function hasTrigger(db: Db, table: string, trigger: string): Promise<boolean> {
+  return (
+    (await one(
+      db,
+      `select 1 from pg_trigger where tgrelid = to_regclass($1) and tgname = $2 and not tgisinternal`,
+      [`public.${table}`, trigger],
+    )) !== null
+  );
+}
+
 const CARD_DESIGN_CHECK = `check (card_design in ('clasica', 'mano', 'color'))`;
+
+/**
+ * An issued invoice is never changed or deleted; the only change let through
+ * is the database clearing a link to a company or an account that was deleted.
+ */
+const INVOICES_ARE_FINAL = `create or replace function public.invoices_are_final() returns trigger
+language plpgsql as $$
+begin
+  if tg_op = 'UPDATE' and tg_table_name = 'invoices'
+     and (to_jsonb(new) - 'company_id' - 'created_by') = (to_jsonb(old) - 'company_id' - 'created_by') then
+    return new;
+  end if;
+  raise exception 'Una factura emitida no se cambia ni se borra: se corrige con una rectificativa.';
+end $$`;
 
 export const UPDATES: readonly SchemaUpdate[] = [
   {
@@ -96,6 +120,105 @@ export const UPDATES: readonly SchemaUpdate[] = [
          bytes      bytea       not null,
          created_at timestamptz not null default now()
        )`,
+      LOCK_DOWN_PUBLIC_API,
+    ],
+  },
+  {
+    id: '20260928120000_invoices',
+    label: 'Facturas: datos fiscales, numeración por series y rectificativas',
+    isApplied: async (db) =>
+      (await hasColumn(db, 'settings', 'vat_rate_bp')) &&
+      (await hasColumn(db, 'settings', 'invoice_note')) &&
+      (await hasColumn(db, 'companies', 'tax_city')) &&
+      (await hasColumn(db, 'orders', 'invoice_id')) &&
+      (await hasTable(db, 'order_billing')) &&
+      (await hasTable(db, 'invoice_counters')) &&
+      (await hasTable(db, 'invoices')) &&
+      (await hasTable(db, 'invoice_lines')) &&
+      (await hasTrigger(db, 'invoices', 'invoices_are_final')) &&
+      (await hasTrigger(db, 'invoice_lines', 'invoice_lines_are_final')) &&
+      (await publicApiIsClosed(db)),
+    statements: [
+      ...['legal_name', 'tax_id', 'legal_address', 'legal_postal_code', 'legal_city', 'legal_email', 'legal_registry'].map(
+        (column) => `alter table public.settings add column if not exists ${column} text`,
+      ),
+      'alter table public.settings add column if not exists vat_rate_bp integer check (vat_rate_bp between 0 and 10000)',
+      'alter table public.settings add column if not exists invoice_note text',
+      ...['tax_name', 'tax_id', 'tax_address', 'tax_postal_code', 'tax_city'].map(
+        (column) => `alter table public.companies add column if not exists ${column} text`,
+      ),
+      `create table if not exists public.order_billing (
+         order_id    bigint      primary key references public.orders(id) on delete cascade,
+         name        text        not null check (length(name) between 1 and 120),
+         tax_id      text        not null check (tax_id ~ '^[A-Z0-9]{9}$'),
+         address     text        not null,
+         postal_code text        not null check (postal_code ~ '^\\d{5}$'),
+         city        text        not null,
+         created_at  timestamptz not null default now()
+       )`,
+      `create table if not exists public.invoice_counters (
+         series   text     not null check (series in ('F', 'S', 'R')),
+         year     smallint not null,
+         last_seq integer  not null check (last_seq > 0),
+         primary key (series, year)
+       )`,
+      `create table if not exists public.invoices (
+         id               bigint generated always as identity primary key,
+         public_id        text        not null unique check (length(public_id) >= 16),
+         series           text        not null check (series in ('F', 'S', 'R')),
+         year             smallint    not null,
+         seq              integer     not null check (seq > 0),
+         number           text        not null unique,
+         issued_on        date        not null,
+         operation_on     date,
+         issuer_name      text        not null,
+         issuer_tax_id    text        not null,
+         issuer_address   text        not null,
+         customer_name    text,
+         customer_tax_id  text,
+         customer_address text,
+         replaces_id      bigint      references public.invoices(id),
+         rectifies_id     bigint      references public.invoices(id),
+         reason           text,
+         company_id       bigint      references public.companies(id) on delete set null,
+         payment_note     text,
+         base_cents       integer     not null,
+         vat_cents        integer     not null,
+         total_cents      integer     not null,
+         created_by       bigint      references public.admin_users(id) on delete set null,
+         created_at       timestamptz not null default now(),
+         unique (series, year, seq),
+         check ((series = 'R') = (rectifies_id is not null)),
+         check (series <> 'F' or (customer_name is not null and customer_tax_id is not null and customer_address is not null)),
+         check (base_cents + vat_cents = total_cents)
+       )`,
+      'create index if not exists invoices_issued_idx on public.invoices (issued_on)',
+      'create index if not exists invoices_company_idx on public.invoices (company_id) where company_id is not null',
+      'create index if not exists invoices_rectifies_idx on public.invoices (rectifies_id) where rectifies_id is not null',
+      'create index if not exists invoices_replaces_idx on public.invoices (replaces_id) where replaces_id is not null',
+      `create table if not exists public.invoice_lines (
+         invoice_id  bigint   not null references public.invoices(id),
+         position    smallint not null check (position > 0),
+         order_id    bigint   references public.orders(id),
+         description text     not null,
+         quantity    integer  not null default 1 check (quantity > 0),
+         vat_rate_bp integer  not null check (vat_rate_bp between 0 and 10000),
+         base_cents  integer  not null,
+         vat_cents   integer  not null,
+         total_cents integer  not null,
+         primary key (invoice_id, position),
+         check (base_cents + vat_cents = total_cents)
+       )`,
+      'create index if not exists invoice_lines_order_idx on public.invoice_lines (order_id) where order_id is not null',
+      'alter table public.orders add column if not exists invoice_id bigint references public.invoices(id)',
+      'create index if not exists orders_invoice_idx on public.orders (invoice_id) where invoice_id is not null',
+      INVOICES_ARE_FINAL,
+      'drop trigger if exists invoices_are_final on public.invoices',
+      `create trigger invoices_are_final before update or delete on public.invoices
+         for each row execute function public.invoices_are_final()`,
+      'drop trigger if exists invoice_lines_are_final on public.invoice_lines',
+      `create trigger invoice_lines_are_final before update or delete on public.invoice_lines
+         for each row execute function public.invoices_are_final()`,
       LOCK_DOWN_PUBLIC_API,
     ],
   },

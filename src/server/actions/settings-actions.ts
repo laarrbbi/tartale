@@ -3,12 +3,13 @@
 import { revalidatePath } from 'next/cache';
 
 import { WEEKDAYS } from '@/lib/dates';
+import { formatVatRate } from '@/lib/invoices';
 import { formatEuros } from '@/lib/orders';
 import { recordAudit } from '@/server/repositories/audit';
 import { listZones, setZoneDelivery } from '@/server/repositories/catalog';
-import { getSettings, saveSettings } from '@/server/repositories/settings';
+import { getBusiness, getSettings, saveBusiness, saveSettings } from '@/server/repositories/settings';
 import { applyPendingSchemaUpdates } from '@/server/services/schema-updates';
-import { deliveryPriceSchema, settingsSchema } from '@/server/validation/panel';
+import { businessSchema, deliveryPriceSchema, settingsSchema } from '@/server/validation/panel';
 
 import { beginMutation, isActionState, type Begun } from './begin';
 import { formFields } from './form-data';
@@ -57,6 +58,45 @@ export async function saveSettingsAction(_previous: ActionState, formData: FormD
   if (changes.length) await audit(begun, 'settings.update', 'settings', changes.join(' · '));
   revalidatePublic();
   return ok(next.ordersEnabled ? 'Guardado.' : 'Guardado. Los pedidos están cerrados: la web lo dice y no acepta ninguno.');
+}
+
+/**
+ * Tartale's legal details and the VAT rate: on the legal pages and on every
+ * invoice from now on (invoices already issued keep the details they had).
+ */
+export async function saveBusinessAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const begun = await beginMutation(formData, { requireRole: 'owner' });
+  if (isActionState(begun)) return begun;
+  const parsed = businessSchema.safeParse(
+    formFields(formData, ['legalName', 'taxId', 'address', 'postalCode', 'city', 'email', 'registry', 'vatRateBp', 'invoiceNote']),
+  );
+  if (!parsed.success) return fail('Revisa los datos.', toFieldErrors(parsed.error.issues));
+  const next = parsed.data;
+  let before;
+  try {
+    before = await getBusiness();
+  } catch {
+    return fail('Antes, pulsa «Actualizar la base de datos» (más abajo): esta versión la necesita para guardar estos datos.');
+  }
+  await saveBusiness(next);
+
+  const labels: Record<keyof typeof next, string> = {
+    legalName: 'razón social',
+    taxId: 'NIF',
+    address: 'dirección',
+    postalCode: 'código postal',
+    city: 'población',
+    email: 'email',
+    registry: 'datos registrales',
+    vatRateBp: 'IVA',
+    invoiceNote: 'nota de las facturas',
+  };
+  const changes = (Object.keys(labels) as (keyof typeof next)[])
+    .filter((k) => next[k] !== before[k])
+    .map((k) => (k === 'vatRateBp' ? `IVA ${next.vatRateBp === null ? 'sin fijar' : formatVatRate(next.vatRateBp)}` : labels[k]));
+  if (changes.length) await audit(begun, 'settings.business', 'settings', changes.join(' · '));
+  revalidatePath('/', 'layout');
+  return ok('Guardado. Sale así en el aviso legal, la privacidad y las facturas nuevas.');
 }
 
 /** Every zone's delivery price, on one screen. Fields are `zone-<id>`. */

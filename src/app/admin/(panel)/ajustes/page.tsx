@@ -1,17 +1,18 @@
 import Link from 'next/link';
 
-import { DeliveryPricesForm, SchemaUpdatesForm, SettingsForm } from '@/components/admin/settings-forms';
+import { BusinessForm, DeliveryPricesForm, SchemaUpdatesForm, SettingsForm } from '@/components/admin/settings-forms';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
-import { LEGAL_COMPLETE } from '@/lib/brand';
 import { RETENTION_DAYS } from '@/lib/constants';
 import { env } from '@/lib/env';
+import { formatVatRate } from '@/lib/invoices';
 import { formatEuros } from '@/lib/orders';
 import { requireOwner } from '@/server/auth/guard';
 import { getDb } from '@/server/db/pg';
 import { listBakeries, listZones } from '@/server/repositories/catalog';
 import { getSettings } from '@/server/repositories/settings';
 import { getTotp } from '@/server/repositories/users';
+import { businessDetails, invoicingGaps } from '@/server/services/invoice-service';
 import { publicApiIsClosed, schemaStatus } from '@/server/services/schema-updates';
 
 interface CheckItem {
@@ -22,14 +23,18 @@ interface CheckItem {
 
 export default async function SettingsPage() {
   const session = await requireOwner();
-  const [settings, zones, bakeries, updates, apiClosed, totp] = await Promise.all([
+  const [settings, zones, bakeries, updates, apiClosed, totp, business] = await Promise.all([
     getSettings(),
     listZones(),
     listBakeries(),
     schemaStatus(),
     publicApiIsClosed(getDb()),
     getTotp(session.user.id),
+    businessDetails(),
   ]);
+  const invoicesReady = updates.find((u) => u.id === '20260928120000_invoices')?.applied ?? false;
+  const legalComplete = Boolean(business.legalName && business.taxId && business.address && business.email);
+  const invoiceGaps = invoicingGaps(business);
   const bakeryName = new Map(bakeries.map((b) => [b.id, b.name]));
   const pendingUpdates = updates.filter((u) => !u.applied);
   const stripeMode = env.STRIPE_SECRET_KEY.includes('_live_') ? 'real' : env.STRIPE_SECRET_KEY ? 'de prueba' : null;
@@ -54,10 +59,18 @@ export default async function SettingsPage() {
     },
     {
       label: 'Datos legales de la empresa',
-      ok: LEGAL_COMPLETE,
-      detail: LEGAL_COMPLETE
+      ok: legalComplete,
+      detail: legalComplete
         ? 'Completos en el aviso legal y la política de privacidad.'
-        : 'Faltan razón social, NIF, dirección y email en src/lib/brand.ts. La ley los pide en la web antes de vender.',
+        : 'Faltan razón social, NIF, dirección o email (aquí abajo). La ley los pide en la web antes de vender.',
+    },
+    {
+      label: 'Facturas',
+      ok: invoiceGaps.length === 0,
+      detail:
+        invoiceGaps.length === 0
+          ? `Cada pedido pagado con tarjeta recibe su factura al momento. IVA: ${formatVatRate(business.vatRateBp!)}.`
+          : `Sin ${invoiceGaps.join(', ')} no se emite ninguna: los pedidos pagados esperan en Facturas.`,
     },
     {
       label: 'Tareas de cada noche',
@@ -109,6 +122,22 @@ export default async function SettingsPage() {
               </li>
             ))}
           </ul>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Datos de la empresa y facturas"
+          description="Salen en el aviso legal, en la política de privacidad y en cada factura. Las facturas ya emitidas no cambian."
+        />
+        <CardBody className="pt-2">
+          {invoicesReady ? (
+            <BusinessForm business={business} csrfToken={session.csrfToken} />
+          ) : (
+            <p className="type-caption rounded-field bg-caution-soft px-4 py-3 text-caution">
+              Primero pulsa «Actualizar la base de datos» (abajo del todo): esta versión la necesita para guardar estos datos.
+            </p>
+          )}
         </CardBody>
       </Card>
 

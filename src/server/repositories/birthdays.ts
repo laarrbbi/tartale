@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { CardDesign } from '@/lib/cards';
 import type { AddressKind, CakeSize, OrderStatus, TimeSlot } from '@/lib/orders';
-import { getDb, isoRequired, one } from '@/server/db/pg';
+import { getDb, isoRequired, one, type Db } from '@/server/db/pg';
 
 // ---------------------------------------------------------------------------
 // Companies: who pays for a team's birthdays
@@ -83,6 +83,34 @@ export async function updateCompany(id: number, input: CompanyInput): Promise<bo
     [id, input.name, input.contactName, input.contactPhone, input.contactEmail, input.billingNotes],
   );
   return rowCount === 1;
+}
+
+/** A company's fiscal details, for its invoices: all five, or none. */
+export interface CompanyTax {
+  name: string;
+  taxId: string;
+  address: string;
+  postalCode: string;
+  city: string;
+}
+
+export async function getCompanyTax(id: number, db: Db = getDb()): Promise<CompanyTax | null> {
+  const row = await one<{ tax_name: string | null; tax_id: string | null; tax_address: string | null; tax_postal_code: string | null; tax_city: string | null }>(
+    db,
+    'select tax_name, tax_id, tax_address, tax_postal_code, tax_city from companies where id = $1',
+    [id],
+  );
+  if (!row?.tax_name || !row.tax_id || !row.tax_address || !row.tax_postal_code || !row.tax_city) return null;
+  return { name: row.tax_name, taxId: row.tax_id, address: row.tax_address, postalCode: row.tax_postal_code, city: row.tax_city };
+}
+
+export async function saveCompanyTax(id: number, tax: CompanyTax | null): Promise<void> {
+  await getDb().query(
+    `update companies
+        set tax_name = $2, tax_id = $3, tax_address = $4, tax_postal_code = $5, tax_city = $6, updated_at = now()
+      where id = $1`,
+    [id, tax?.name ?? null, tax?.taxId ?? null, tax?.address ?? null, tax?.postalCode ?? null, tax?.city ?? null],
+  );
 }
 
 /** The company and its whole list go; orders already made stay (their people are erased on schedule). */

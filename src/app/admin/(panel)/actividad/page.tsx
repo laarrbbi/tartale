@@ -37,6 +37,8 @@ const ACTIONS: Record<string, string> = {
   'cake.create': 'Tarta nueva',
   'cake.update': 'Tarta cambiada',
   'settings.update': 'Ajustes',
+  'settings.business': 'Datos de la empresa',
+  'invoice.issued': 'Factura emitida',
   'schema.update': 'Base de datos actualizada',
   'setup.schema': 'Base de datos creada',
   'account.create': 'Cuenta nueva',
@@ -58,6 +60,7 @@ const FILTERS = {
   pedidos: { label: 'Pedidos', kinds: ['order'] },
   catalogo: { label: 'Pastelerías y carta', kinds: ['bakery', 'zone', 'cake'] },
   cumpleanos: { label: 'Cumpleaños', kinds: ['company', 'birthday'] },
+  facturas: { label: 'Facturas', kinds: ['invoice'] },
   ajustes: { label: 'Ajustes', kinds: ['settings', 'schema', 'setup', 'retention'] },
   accesos: { label: 'Accesos', kinds: ['login', 'logout', 'password', 'totp', 'account'] },
 } as const;
@@ -66,10 +69,11 @@ type Filter = keyof typeof FILTERS;
 const FAILED = new Set(['login.failed', 'login.failed_code', 'login.blocked_locked', 'birthday.problem']);
 
 function targetLink(target: string | null): { href: string; label: string } | null {
-  const match = target ? /^(order|bakery|account|company):(\d+)$/.exec(target) : null;
+  const match = target ? /^(order|bakery|account|company|invoice):(\d+)$/.exec(target) : null;
   if (!match) return null;
   const [, kind, id] = match;
   if (kind === 'order') return { href: `/admin/pedidos/${id}`, label: `pedido nº ${id}` };
+  if (kind === 'invoice') return { href: `/admin/facturas/${id}`, label: 'factura' };
   if (kind === 'bakery') return { href: `/admin/pastelerias/${id}`, label: 'pastelería' };
   if (kind === 'company') return { href: `/admin/cumpleanos/${id}`, label: 'empresa' };
   return { href: '/admin/equipo', label: 'cuenta' };

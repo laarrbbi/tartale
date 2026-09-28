@@ -66,10 +66,10 @@ function CompanyFields({ prefix, company, errors }: { prefix: string; company?: 
         </Field>
       </div>
       <Field
-        label="Facturación"
+        label="Notas de cobro · opcional"
         htmlFor={`${prefix}-billing`}
         error={errors?.billingNotes}
-        hint="NIF, dirección fiscal, cómo y cuándo paga (transferencia…)."
+        hint="Cómo y cuándo paga (transferencia a 30 días…). Los datos fiscales van en su propio apartado."
       >
         <Textarea id={`${prefix}-billing`} name="billingNotes" rows={3} defaultValue={company?.billingNotes ?? ''} maxLength={500} />
       </Field>

@@ -30,6 +30,8 @@ import {
   type Occasion,
   type TimeSlot,
 } from '@/lib/orders';
+import { INVOICE_LIMITS } from '@/lib/invoices';
+import { isValidTaxId } from '@/lib/tax-id';
 import { formatPostcodes } from '@/lib/zones';
 import type { PublicMenu } from '@/lib/catalog-types';
 
@@ -63,6 +65,12 @@ type Values = {
   senderCompany: string;
   recipientConsent: boolean;
   marketingOptIn: boolean;
+  wantsInvoice: boolean;
+  billingName: string;
+  billingTaxId: string;
+  billingAddress: string;
+  billingPostalCode: string;
+  billingCity: string;
 };
 
 /** Who and where (and which cake, and its price), then how it looks, then review and pay. */
@@ -74,6 +82,7 @@ const FIELD_STEP: Record<string, number> = {
   recipientPhone: 0, deliverOn: 0, timeSlot: 0, cakeId: 0, size: 0, allergies: 0,
   photo: 1, cakeText: 1, cardDesign: 1, cardMessage: 1, signOff: 1, anonymous: 1, document: 1,
   senderName: 2, senderPhone: 2, senderEmail: 2, senderCompany: 2, recipientConsent: 2,
+  billingName: 2, billingTaxId: 2, billingAddress: 2, billingPostalCode: 2, billingCity: 2,
 };
 
 /**
@@ -168,6 +177,12 @@ export function OrderFlow({
     senderCompany: '',
     recipientConsent: false,
     marketingOptIn: false,
+    wantsInvoice: false,
+    billingName: '',
+    billingTaxId: '',
+    billingAddress: '',
+    billingPostalCode: '',
+    billingCity: '',
   });
   const [cardTouched, setCardTouched] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -263,6 +278,9 @@ export function OrderFlow({
   /** The checks the browser cannot do by itself, per step. */
   function customErrors(forStep: number): Record<string, string> {
     const found: Record<string, string> = {};
+    if (forStep === 2 && values.wantsInvoice && !isValidTaxId(values.billingTaxId)) {
+      found.billingTaxId = 'Ese NIF no es válido: revisa la letra o el último número.';
+    }
     if (forStep !== 0) return found;
     if (/^\d{5}$/.test(code) && !zone) found.postalCode = `Todavía no llegamos ahí. Entregamos en ${formatPostcodes(allCodes)}.`;
     if (values.deliverOn && closedWeekdays.includes(weekday(values.deliverOn))) {
@@ -761,6 +779,40 @@ export function OrderFlow({
                 />
                 <span className="type-caption text-pretty">Quiero recibir novedades de Tartale por email. Opcional; puedes darte de baja cuando quieras.</span>
               </label>
+              <label className="flex cursor-pointer items-start gap-3 px-1">
+                <input
+                  type="checkbox"
+                  name="wantsInvoice"
+                  checked={values.wantsInvoice}
+                  onChange={(e) => set('wantsInvoice', e.target.checked)}
+                  className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--brand)]"
+                />
+                <span className="type-caption text-pretty">
+                  Quiero la factura a nombre de una empresa o de un autónomo. Si no, te hacemos una factura simplificada.
+                </span>
+              </label>
+              {values.wantsInvoice ? (
+                <fieldset className="step-enter flex flex-col gap-4 rounded-field bg-surface-sunken/60 p-4">
+                  <legend className="sr-only">Datos de facturación</legend>
+                  <Field label="Razón social, o nombre completo" htmlFor="billingName" error={error('billingName')}>
+                    <Input {...text('billingName')} required minLength={2} autoComplete="organization" maxLength={INVOICE_LIMITS.name} />
+                  </Field>
+                  <Field label="NIF" htmlFor="billingTaxId" error={error('billingTaxId')} hint="De la empresa, o tu DNI o NIE si eres autónomo.">
+                    <Input {...text('billingTaxId')} required maxLength={30} autoCapitalize="characters" spellCheck={false} />
+                  </Field>
+                  <Field label="Dirección fiscal" htmlFor="billingAddress" error={error('billingAddress')}>
+                    <Input {...text('billingAddress')} required minLength={5} autoComplete="street-address" maxLength={INVOICE_LIMITS.address} />
+                  </Field>
+                  <div className="grid grid-cols-[7.5rem_1fr] gap-3">
+                    <Field label="C. postal" htmlFor="billingPostalCode" error={error('billingPostalCode')}>
+                      <Input {...text('billingPostalCode')} required inputMode="numeric" pattern="\d{5}" maxLength={5} autoComplete="postal-code" />
+                    </Field>
+                    <Field label="Población" htmlFor="billingCity" error={error('billingCity')}>
+                      <Input {...text('billingCity')} required minLength={2} autoComplete="address-level2" maxLength={INVOICE_LIMITS.city} />
+                    </Field>
+                  </div>
+                </fieldset>
+              ) : null}
             </>
           ) : null}
         </div>

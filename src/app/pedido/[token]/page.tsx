@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { BoxPreview } from '@/components/order/box-preview';
+import { CompanyInvoiceForm } from '@/components/order/company-invoice-form';
 import { CopyLinkButton, PayNowButton } from '@/components/order/tracking-actions';
 import { SiteFooter } from '@/components/site/site-footer';
 import { SiteHeader } from '@/components/site/site-header';
@@ -9,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/cn';
 import { RETENTION_DAYS } from '@/lib/constants';
 import { longDate } from '@/lib/dates';
+import { INVOICE_SERIES } from '@/lib/invoices';
 import { SIZES, SLOTS, STATUSES, STATUS_FLOW, formatEuros } from '@/lib/orders';
 import { whatsappLink } from '@/lib/whatsapp';
 import { isPublicId } from '@/server/http/body';
@@ -17,6 +20,7 @@ import { getSettings } from '@/server/repositories/settings';
 import { hashIp } from '@/server/security/hash';
 import { ANONYMOUS_BUCKET, RULES, consume } from '@/server/security/rate-limit';
 import { getClientIp } from '@/server/security/request';
+import { orderInvoicing, type OrderInvoicing } from '@/server/services/invoice-service';
 import { orderForTracking } from '@/server/services/order-service';
 
 export const metadata: Metadata = {
@@ -52,9 +56,11 @@ export default async function TrackingPage({
   const sessionId = typeof query.session_id === 'string' ? query.session_id : null;
   const order = await orderForTracking(token, sessionId);
   if (!order) notFound();
-  const [settings, document] = await Promise.all([
+  const [settings, document, invoicing] = await Promise.all([
     getSettings(),
     order.hasDocument ? getOrderDocumentInfo(order.id) : Promise.resolve(null),
+    // Invoices are a courtesy on this page: if they cannot be read, the page still shows the order.
+    orderInvoicing(order.id).catch((): OrderInvoicing | null => null),
   ]);
 
   const unpaid = order.paymentMethod === 'stripe' && (order.paymentStatus === 'pendiente' || order.paymentStatus === 'caducado');
@@ -181,6 +187,8 @@ export default async function TrackingPage({
           </div>
         </section>
 
+        {!unpaid && invoicing ? <InvoiceSection order={order} invoicing={invoicing} /> : null}
+
         <div className="flex flex-wrap items-center justify-center gap-3">
           <CopyLinkButton />
           {wa ? (
@@ -195,5 +203,73 @@ export default async function TrackingPage({
       </main>
       <SiteFooter />
     </>
+  );
+}
+
+/** F2026-0004 with a hyphen a line never breaks at. */
+const unbroken = (number: string) => number.replace('-', '\u2011');
+
+/**
+ * The order's invoices, and the way to have one in a company's name: before
+ * it is issued, or by swapping the simplificada for a completa.
+ */
+function InvoiceSection({
+  order,
+  invoicing,
+}: {
+  order: { publicId: string; paymentMethod: string };
+  invoicing: OrderInvoicing;
+}) {
+  const { invoices, current, billing } = invoicing;
+  const byCard = order.paymentMethod === 'stripe';
+  const prompt =
+    current?.series === 'S'
+      ? '¿La necesitas a nombre de tu empresa?'
+      : !current && byCard
+        ? billing
+          ? 'Cambiar los datos de la factura'
+          : '¿La quieres a nombre de tu empresa?'
+        : null;
+
+  return (
+    <section aria-labelledby="factura" className="flex flex-col gap-3 rounded-card bg-surface p-6 ring-1 ring-line/70">
+      <h2 id="factura" className="type-heading">
+        Factura
+      </h2>
+      {invoices.length > 0 ? (
+        <ul className="flex flex-col divide-y divide-line">
+          {invoices.map((doc) => {
+            const replacement = invoices.find((other) => other.replacesId === doc.id);
+            const rectified = doc.rectifiesId ? invoices.find((other) => other.id === doc.rectifiesId) : null;
+            return (
+              <li key={doc.id} className="flex items-baseline justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <Link
+                    href={`/factura/${doc.publicId}`}
+                    className="type-body whitespace-nowrap font-semibold underline decoration-line-strong underline-offset-4 hover:decoration-ink"
+                  >
+                    {doc.number}
+                  </Link>
+                  <p className="type-caption text-pretty">
+                    {INVOICE_SERIES[doc.series].label}
+                    {replacement ? `, sustituida por la ${unbroken(replacement.number)}` : ''}
+                    {rectified ? ` de la ${unbroken(rectified.number)}${doc.reason ? `: ${doc.reason.toLowerCase()}` : ''}` : ''}
+                  </p>
+                </div>
+                <span className="type-body type-numeric whitespace-nowrap">{formatEuros(doc.totalCents)}</span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="type-body text-pretty text-ink-muted">
+          {billing ? `Saldrá a nombre de ${billing.name}. ` : ''}La verás aquí en cuanto la emitamos.
+        </p>
+      )}
+      {prompt && byCard ? <CompanyInvoiceForm token={order.publicId} prompt={prompt} /> : null}
+      {current?.series === 'F' ? (
+        <p className="type-caption text-pretty">Si hay un error en los datos de la factura, escríbenos y te la corregimos.</p>
+      ) : null}
+    </section>
   );
 }

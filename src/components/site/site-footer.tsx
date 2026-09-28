@@ -1,10 +1,12 @@
 import Link from 'next/link';
 
-import { BRAND, LEGAL } from '@/lib/brand';
+import { BRAND } from '@/lib/brand';
+import { businessDetails } from '@/server/services/invoice-service';
 
 import { Logo } from './logo';
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const { legalName } = await businessDetails();
   return (
     <footer className="bg-chocolate text-ink-inverse">
       <div className="mx-auto grid max-w-6xl gap-8 px-5 py-12 sm:grid-cols-[1.4fr_1fr]">
@@ -25,7 +27,7 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-white/10">
         <p className="mx-auto max-w-6xl px-5 py-5 text-[0.8125rem] text-[#cdb8a2]">
-          © {new Date().getFullYear()} {LEGAL.name ?? BRAND.name}
+          © {new Date().getFullYear()} {legalName ?? BRAND.name}
         </p>
       </div>
     </footer>

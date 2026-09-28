@@ -53,7 +53,7 @@ test('CSP: scripts only with this request’s nonce, no inline or eval, no frami
   assert.match(buildCsp('x', true), /'unsafe-eval'/, 'only the dev server gets eval, for its error overlay');
 });
 
-test('headers: HSTS with preload everywhere; the tracking link is never indexed nor leaked as a referrer', async () => {
+test('headers: HSTS with preload everywhere; tracking and invoice links are never indexed nor leaked as a referrer', async () => {
   const rules = (await nextConfig.headers!()) as { source: string; headers: { key: string; value: string }[] }[];
   const get = (source: string, key: string) => rules.find((r) => r.source === source)?.headers.find((h) => h.key === key)?.value;
   assert.match(get('/:path*', 'Strict-Transport-Security') ?? '', /max-age=\d{8,}; includeSubDomains; preload/);
@@ -61,6 +61,8 @@ test('headers: HSTS with preload everywhere; the tracking link is never indexed 
   assert.equal(get('/:path*', 'X-Content-Type-Options'), 'nosniff');
   assert.equal(get('/pedido/:path*', 'Referrer-Policy'), 'no-referrer');
   assert.match(get('/pedido/:path*', 'X-Robots-Tag') ?? '', /noindex/);
+  assert.equal(get('/factura/:path*', 'Referrer-Policy'), 'no-referrer');
+  assert.match(get('/factura/:path*', 'X-Robots-Tag') ?? '', /noindex/);
   assert.match(get('/admin/:path*', 'X-Robots-Tag') ?? '', /noindex/);
   assert.equal(nextConfig.poweredByHeader, false);
 });
@@ -176,7 +178,7 @@ function serverActions(): ExportedAction[] {
   return out;
 }
 
-const OWNER_ONLY_FILES = ['bakery-actions.ts', 'settings-actions.ts', 'team-actions.ts', 'birthday-actions.ts'];
+const OWNER_ONLY_FILES = ['bakery-actions.ts', 'settings-actions.ts', 'team-actions.ts', 'birthday-actions.ts', 'invoice-actions.ts'];
 const OWNER_ONLY_ORDER_ACTIONS = [
   'cancelOrderAction',
   'restoreOrderAction',
@@ -215,7 +217,7 @@ test('every panel page asks for a session; the owner’s pages for the owner', (
   for (const page of pages) {
     assert.match(read(page), /await require(Session|Owner)\(/, page);
   }
-  for (const section of ['ajustes', 'equipo', 'actividad', 'cumpleanos', 'cumpleanos/[id]']) {
+  for (const section of ['ajustes', 'equipo', 'actividad', 'cumpleanos', 'cumpleanos/[id]', 'facturas', 'facturas/[id]']) {
     const page = path.join('src/app/admin/(panel)', section, 'page.tsx');
     assert.match(read(page), /await requireOwner\(\)/, page);
   }

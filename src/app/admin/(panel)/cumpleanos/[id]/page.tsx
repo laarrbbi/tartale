@@ -10,17 +10,21 @@ import {
   ImportBirthdaysForm,
   type CakeOption,
 } from '@/components/admin/birthday-forms';
+import { CompanyInvoiceForm, CompanyTaxForm } from '@/components/admin/invoice-forms';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { formatDayMonth, planBirthday } from '@/lib/birthdays';
 import { dayMonth, longDate, madridToday } from '@/lib/dates';
 import { plural } from '@/lib/format';
-import { SIZES, STATUSES } from '@/lib/orders';
+import { INVOICE_SERIES, invoiceDate } from '@/lib/invoices';
+import { SIZES, STATUSES, formatEuros } from '@/lib/orders';
 import { telHref } from '@/lib/whatsapp';
 import { requireOwner } from '@/server/auth/guard';
-import { birthdayOrders, findCompany, listBirthdays } from '@/server/repositories/birthdays';
+import { birthdayOrders, findCompany, getCompanyTax, listBirthdays } from '@/server/repositories/birthdays';
+import { listCompanyOrdersToInvoice, listInvoicesForCompany } from '@/server/repositories/invoices';
 import { getSettings } from '@/server/repositories/settings';
 import { loadCatalog, resolveBirthday } from '@/server/services/birthday-service';
+import { businessDetails, invoiceableCents, invoicingGaps } from '@/server/services/invoice-service';
 
 export default async function CompanyPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireOwner();
@@ -38,6 +42,13 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
     .map((c) => ({ id: c.id, name: c.name, prices: c.prices }));
   const cakeName = new Map(catalog.cakes.map((c) => [c.id, c.name]));
   const tel = telHref(company.contactPhone);
+  // Before the database update that adds invoices, their cards are left out.
+  const billing = await Promise.all([
+    getCompanyTax(company.id),
+    listInvoicesForCompany(company.id),
+    listCompanyOrdersToInvoice(company.id),
+    businessDetails(),
+  ]).catch(() => null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -160,6 +171,68 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
           />
         </CardBody>
       </Card>
+
+      {billing ? (
+        <>
+          <Card>
+            <CardHeader
+              title="Datos fiscales"
+              description="Para sus facturas: razón social, NIF y dirección fiscal. Las facturas ya emitidas no cambian."
+            />
+            <CardBody className="pt-2">
+              <CompanyTaxForm companyId={company.id} values={billing[0] ?? {}} csrfToken={session.csrfToken} />
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Facturas"
+              description="Una factura por los pedidos que marques (los de un mes, por ejemplo). Se pagan por transferencia."
+            />
+            <CardBody className="flex flex-col gap-4 pt-2">
+              {billing[1].length > 0 ? (
+                <ul className="flex flex-col divide-y divide-line">
+                  {billing[1].map((doc) => (
+                    <li key={doc.id} className="flex items-baseline justify-between gap-3 py-2">
+                      <Link href={`/admin/facturas/${doc.id}`} className="type-body font-medium underline decoration-line-strong underline-offset-4">
+                        {doc.number}
+                      </Link>
+                      <span className="type-caption min-w-0 flex-1 truncate">
+                        {INVOICE_SERIES[doc.series].label} · {invoiceDate(doc.issuedOn)}
+                      </span>
+                      <span className="type-body type-numeric">{formatEuros(doc.totalCents)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {billing[2].length === 0 ? (
+                <p className="type-caption">No hay pedidos sin facturar.</p>
+              ) : invoicingGaps(billing[3]).length > 0 ? (
+                <p className="type-caption">
+                  Para facturar faltan datos de Tartale en{' '}
+                  <Link href="/admin/ajustes" className="font-medium text-brand underline underline-offset-2">
+                    Ajustes
+                  </Link>
+                  .
+                </p>
+              ) : !billing[0] ? (
+                <p className="type-caption">Para facturar, rellena antes sus datos fiscales.</p>
+              ) : (
+                <CompanyInvoiceForm
+                  companyId={company.id}
+                  orders={billing[2].map((o) => ({
+                    id: o.id,
+                    label: `Nº ${o.id} · ${o.cakeName} ${SIZES[o.size].label.toLowerCase()} · ${longDate(o.deliverOn)} · ${STATUSES[o.status].label}`,
+                    cents: invoiceableCents(o),
+                    delivered: o.status === 'entregado',
+                  }))}
+                  csrfToken={session.csrfToken}
+                />
+              )}
+            </CardBody>
+          </Card>
+        </>
+      ) : null}
 
       <Card>
         <CardHeader
