@@ -3,29 +3,47 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * The film behind the hero, in three shots: a man in a suit having a bad call
- * in his office; the cake that arrives, «Contáctame, tengo una propuesta» and
- * a number printed on it; the same man laughing on the phone. It plays only
- * while it is on screen, and not at all for people who asked for less motion
- * or to save data: they get the still. Muted, looped, 11 seconds, about
- * 440 KB (WebM) or 640 KB (MP4).
+ * The film behind the hero: an executive on a bad call in his office; a
+ * Tartale courier arrives at his door and hands him the box; he looks down at
+ * it, the cake says «Contáctame, tengo una propuesta» and a number; he picks
+ * up his phone and dials it. Muted, looped, 15 seconds, about 700 KB (WebM)
+ * or 1 MB (MP4).
+ *
+ * It plays only while it is on screen, and not at all for people who asked
+ * for less motion or to save data: they get a still of the cake instead.
+ * While it plays it marks the scene on screen as `data-scene` on the closest
+ * `[data-film]` element, so the captions around it can follow the story.
  */
-export function HeroFilm({ className }: { className?: string }) {
+export function HeroFilm({ className, scenes = [] }: { className?: string; scenes?: readonly number[] }) {
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const video = ref.current;
     if (!video) return;
     const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
-    if (saveData || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (saveData || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      video.poster = '/video/hero-still.jpg';
+      return;
+    }
     video.muted = true;
+    const film = video.closest<HTMLElement>('[data-film]');
+    const onTime = () => {
+      if (!film || scenes.length === 0) return;
+      let scene = 0;
+      for (let i = 0; i < scenes.length; i++) if (video.currentTime >= scenes[i]!) scene = i;
+      if (film.dataset.scene !== String(scene)) film.dataset.scene = String(scene);
+    };
+    video.addEventListener('timeupdate', onTime);
     const observer = new IntersectionObserver(([entry]) => {
       if (entry?.isIntersecting) void video.play().catch(() => undefined);
       else video.pause();
     });
     observer.observe(video);
-    return () => observer.disconnect();
-  }, []);
+    return () => {
+      observer.disconnect();
+      video.removeEventListener('timeupdate', onTime);
+    };
+  }, [scenes]);
 
   return (
     <video

@@ -704,3 +704,57 @@ html.js [data-reveal='mail'] .mail-reply {
     animation: none;
   }
 }
+
+/* The film's captions (home page). Without the film playing (no JavaScript,
+   reduced motion, save-data) they read as a plain timeline with the ending
+   lit; while it plays, HeroFilm marks the scene on screen (data-scene) and
+   that caption is the lit one. Colours only, so the entrance animation is
+   left alone. */
+.story-step {
+  background-color: rgb(26 15 10 / 0.6);
+  color: #f5e6d3;
+  transition:
+    background-color 350ms ease,
+    color 350ms ease,
+    box-shadow 350ms ease;
+}
+.story-step:last-child {
+  background-color: #fffaf3;
+  color: #1a0f0a;
+  box-shadow: var(--shadow-lift);
+}
+[data-scene] .story-step {
+  background-color: rgb(26 15 10 / 0.45);
+  color: rgb(245 230 211 / 0.72);
+  box-shadow: none;
+}
+[data-scene='0'] .story-step[data-step='0'],
+[data-scene='1'] .story-step[data-step='1'],
+[data-scene='2'] .story-step[data-step='2'],
+[data-scene='3'] .story-step[data-step='3'] {
+  background-color: #fffaf3;
+  color: #1a0f0a;
+  box-shadow: var(--shadow-lift);
+}
+
+/* On a phone: only the caption of the scene on screen, and only while the film plays. */
+.story-now {
+  display: none;
+}
+@media (width < 48rem) {
+  [data-scene] .story-now {
+    display: grid;
+  }
+}
+.story-now > span {
+  grid-area: 1 / 1;
+  justify-self: start;
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+[data-scene='0'] .story-now > [data-step='0'],
+[data-scene='1'] .story-now > [data-step='1'],
+[data-scene='2'] .story-now > [data-step='2'],
+[data-scene='3'] .story-now > [data-step='3'] {
+  opacity: 1;
+}

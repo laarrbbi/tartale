@@ -84,6 +84,19 @@ const EXAMPLES: {
   },
 ];
 
+/**
+ * The film's story, scene by scene: when each scene starts in the video
+ * (seconds) and its caption. The times of day are part of the example, not a
+ * promise.
+ */
+const STORY = [
+  { at: 0, time: '10:02', text: 'Castellana, Madrid. Otra llamada de las malas' },
+  { at: 1.8, time: '10:04', text: 'Llega Tartale' },
+  { at: 5.5, time: '10:05', text: 'Abre la caja: «Contáctame»' },
+  { at: 11, time: '10:06', text: 'Te llama' },
+] as const;
+const SCENES = STORY.map((s) => s.at);
+
 const AUDIENCES = [
   'Para el cliente que no contesta.',
   'Para el inversor al que quieres llegar.',
@@ -163,9 +176,20 @@ export default async function HomePage() {
       <SiteHeader />
       <main id="main" className="overflow-x-clip">
         {/* ---------------------------------------------------------------- Hero */}
-        <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-[#1a0f0a] text-[#fffaf3]">
+        <section aria-labelledby="hero-title" data-film className="relative isolate overflow-hidden bg-[#1a0f0a] text-[#fffaf3]">
           {/* On a phone the film fills the top and the words sit under it; on a wide screen it fills everything. */}
-          <HeroFilm className="hero-film absolute inset-x-0 top-0 -z-20 h-[62%] w-full object-cover object-[70%_30%] md:inset-0 md:h-full md:object-[60%_30%]" />
+          <HeroFilm
+            scenes={SCENES}
+            className="hero-film absolute inset-x-0 top-0 -z-20 h-[62%] w-full object-cover object-[70%_30%] md:inset-0 md:h-full md:object-[60%_30%]"
+          />
+          {/* On a phone, the caption of the scene on screen, at the top of the film. */}
+          <p aria-hidden className="story-now absolute left-4 top-4 text-[0.8125rem] md:hidden">
+            {STORY.map((scene, i) => (
+              <span key={scene.time} data-step={i} className="rounded-pill bg-[#1a0f0a]/65 px-3 py-1.5 text-[#f5e6d3] backdrop-blur-[6px]">
+                <span className="type-numeric font-semibold text-[#fffaf3]">{scene.time}</span> · {scene.text}
+              </span>
+            ))}
+          </p>
           {/* Shade where the words are: from the bottom on a phone, from the left on a wide screen. */}
           <div
             aria-hidden
@@ -173,32 +197,23 @@ export default async function HomePage() {
           />
 
           <div className="mx-auto flex min-h-[calc(100svh-4rem)] max-w-6xl flex-col justify-end px-5 pb-12 pt-40 md:min-h-[44rem] md:justify-center md:pb-20 md:pt-20">
-            {/* The story of the film, with times: an example, not a promise. On a phone the film tells it alone. */}
+            {/* The story of the film as a timeline; the scene on screen is the lit one (.story-step in globals.css). */}
             <ol
               aria-label="Lo que pasa cuando llega"
-              className="hidden text-[0.8125rem] text-[#f5e6d3] md:absolute md:right-6 md:flex md:top-12 md:mb-0 md:flex-col md:items-end md:gap-2 lg:right-10"
+              className="hidden text-[0.8125rem] md:absolute md:right-6 md:top-12 md:flex md:flex-col md:items-end md:gap-2 lg:right-10"
             >
-              {[
-                { time: '10:02', text: 'Madrid. Otra llamada de las malas', d: 900 },
-                { time: '10:05', text: 'Le llega tu tarta: «Contáctame»', d: 2200 },
-              ].map((tick) => (
+              {STORY.map((scene, i) => (
                 <li
-                  key={tick.time}
-                  className="hero-tick flex items-center gap-2 rounded-pill bg-[#1a0f0a]/60 px-3 py-1.5 backdrop-blur-[6px]"
-                  style={vars({ '--d': tick.d })}
+                  key={scene.time}
+                  data-step={i}
+                  className="story-step hero-tick flex items-center gap-2 rounded-pill px-3 py-1.5 backdrop-blur-[6px]"
+                  style={vars({ '--d': 700 + i * 350 })}
                 >
-                  <span className="type-numeric font-semibold text-[#fffaf3]">{tick.time}</span>
-                  <span>{tick.text}</span>
+                  {i === STORY.length - 1 ? <span aria-hidden className="ring-dot h-2 w-2 rounded-full bg-[#2e9d5b] text-[#2e9d5b]" /> : null}
+                  <span className="type-numeric font-semibold">{scene.time}</span>
+                  <span>{scene.text}</span>
                 </li>
               ))}
-              <li
-                className="hero-tick flex items-center gap-2 rounded-pill bg-[#fffaf3] px-3 py-1.5 font-semibold text-[#1a0f0a] shadow-[var(--shadow-lift)]"
-                style={vars({ '--d': 3600 })}
-              >
-                <span aria-hidden className="ring-dot h-2 w-2 rounded-full bg-[#2e9d5b] text-[#2e9d5b]" />
-                <span className="type-numeric">10:06</span>
-                <span>Te llama</span>
-              </li>
             </ol>
 
             <h1 id="hero-title" className="type-hero hero-title max-w-[13ch] text-balance text-[#fffaf3] md:max-w-[11ch]">
