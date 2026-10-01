@@ -43,7 +43,7 @@ export function senderConfirmation(order: MessageOrder, trackingUrl: string): st
       ? `Pagado: ${formatEuros(order.totalCents)}.`
       : `Importe: ${formatEuros(order.totalCents)}, por transferencia.`;
   return [
-    `Hola ${firstName(order.senderName)}, te escribimos de Tartale.`,
+    `Hola ${firstName(order.senderName)}, te escribimos de Tartame.`,
     `Confirmamos tu pedido nº ${order.id}: tarta ${order.cakeName} (${SIZES[order.size].label.toLowerCase()}) para ${order.recipientName ?? ''},` +
       ` el ${longDate(order.deliverOn)}, ${SLOTS[order.timeSlot].label.toLowerCase()} (${SLOTS[order.timeSlot].hours}).`,
     paid,
@@ -58,7 +58,7 @@ export function senderConfirmation(order: MessageOrder, trackingUrl: string): st
  */
 export function bakeryBrief(order: MessageOrder): string {
   const lines = [
-    `Pedido Tartale nº ${order.id} · ${longDate(order.deliverOn)}, ${SLOTS[order.timeSlot].label.toLowerCase()} (${SLOTS[order.timeSlot].hours})`,
+    `Pedido Tartame nº ${order.id} · ${longDate(order.deliverOn)}, ${SLOTS[order.timeSlot].label.toLowerCase()} (${SLOTS[order.timeSlot].hours})`,
     `Tarta: ${order.cakeName}, ${SIZES[order.size].label.toLowerCase()}`,
     `Encima: ${order.cakeText ? `«${order.cakeText}»` : '(sin frase)'}${order.hasPhoto ? ' · con foto impresa' : ' · sin foto'}`,
   ];

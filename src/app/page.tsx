@@ -91,9 +91,9 @@ const EXAMPLES: {
  */
 const STORY = [
   { at: 0, time: '10:02', text: 'Castellana, Madrid. Otra llamada de las malas' },
-  { at: 1.8, time: '10:04', text: 'Llega Tartale' },
-  { at: 5.5, time: '10:05', text: 'Abre la caja: «Contáctame»' },
-  { at: 11, time: '10:06', text: 'Te llama' },
+  { at: 1.8, time: '10:04', text: 'Llega Tartame' },
+  { at: 5.2, time: '10:05', text: 'Abre la caja: «Contáctame»' },
+  { at: 10.2, time: '10:06', text: 'Te llama' },
 ] as const;
 const SCENES = STORY.map((s) => s.at);
 

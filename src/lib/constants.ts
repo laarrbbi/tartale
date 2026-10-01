@@ -59,5 +59,5 @@ export const RETENTION_DAYS = {
 export const CONSENT_TEXT = {
   recipient:
     'Los datos de quien recibe la tarta me los ha dado a mí o puedo darlos, y se usan solo para entregársela.',
-  marketing: 'Quiero recibir novedades de Tartale por email. Puedo darme de baja cuando quiera.',
+  marketing: 'Quiero recibir novedades de Tartame por email. Puedo darme de baja cuando quiera.',
 } as const;

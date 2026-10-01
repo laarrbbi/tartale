@@ -777,7 +777,7 @@ export function OrderFlow({
                   onChange={(e) => set('marketingOptIn', e.target.checked)}
                   className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--brand)]"
                 />
-                <span className="type-caption text-pretty">Quiero recibir novedades de Tartale por email. Opcional; puedes darte de baja cuando quieras.</span>
+                <span className="type-caption text-pretty">Quiero recibir novedades de Tartame por email. Opcional; puedes darte de baja cuando quieras.</span>
               </label>
               <label className="flex cursor-pointer items-start gap-3 px-1">
                 <input

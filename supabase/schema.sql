@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Tartale — the whole schema, as it stands after every migration.
+-- Tartame — the whole schema, as it stands after every migration.
 --
 -- A fresh database gets this file once (Supabase SQL editor, or the connector)
 -- and then supabase/seed.sql. Later changes arrive as files in
@@ -84,7 +84,7 @@ create table if not exists public.settings (
   closed_weekdays  smallint[]  not null default '{}',
   whatsapp_number  text,
   updated_at       timestamptz not null default now(),
-  -- Tartale's own details: on every invoice and on the legal pages (Ajustes).
+  -- Tartame's own details: on every invoice and on the legal pages (Ajustes).
   legal_name        text,
   tax_id            text,
   legal_address     text,

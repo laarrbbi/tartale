@@ -32,7 +32,7 @@ function revalidatePublic() {
   revalidatePath('/enviar');
 }
 
-/** The switch, the notice, how far ahead, the days without deliveries, Tartale's WhatsApp. */
+/** The switch, the notice, how far ahead, the days without deliveries, Tartame's WhatsApp. */
 export async function saveSettingsAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const begun = await beginMutation(formData, { requireRole: 'owner' });
   if (isActionState(begun)) return begun;
@@ -61,7 +61,7 @@ export async function saveSettingsAction(_previous: ActionState, formData: FormD
 }
 
 /**
- * Tartale's legal details and the VAT rate: on the legal pages and on every
+ * Tartame's legal details and the VAT rate: on the legal pages and on every
  * invoice from now on (invoices already issued keep the details they had).
  */
 export async function saveBusinessAction(_previous: ActionState, formData: FormData): Promise<ActionState> {

@@ -5,7 +5,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { env } from '@/lib/env';
 
 /**
- * The three Stripe calls Tartale makes, over plain HTTPS: open a Checkout
+ * The three Stripe calls Tartame makes, over plain HTTPS: open a Checkout
  * session, read one back, refund a payment. Plus the webhook signature check.
  *
  * No SDK: three form-encoded POSTs and an HMAC are less code than the
@@ -137,7 +137,7 @@ export async function createCheckoutSession(input: {
       client_reference_id: String(input.orderId),
       metadata: { order_id: String(input.orderId), public_id: input.publicId },
       payment_intent_data: {
-        description: `Tartale · pedido ${input.orderId}`,
+        description: `Tartame · pedido ${input.orderId}`,
         metadata: { order_id: String(input.orderId) },
       },
       line_items: input.lines.map((line) => ({

@@ -37,7 +37,7 @@ export function OrderTicket({ title, lines }: { title: string; lines: TicketLine
       <div aria-hidden className="ticket absolute inset-y-0 left-0 w-full md:w-[27rem]" />
 
       <div className="relative px-6 pb-5 pt-10 sm:px-8">
-        <p className="text-center text-[0.95rem] font-semibold tracking-[0.2em]">TARTALE</p>
+        <p className="text-center text-[0.95rem] font-semibold tracking-[0.2em]">TARTAME</p>
         <p className="mt-1 text-center text-[0.72rem] tracking-[0.12em] text-[#6e5747]">{title}</p>
         <hr className="mt-5 border-0 border-t border-dashed border-[#2b1810]/35" />
       </div>

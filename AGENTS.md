@@ -8,7 +8,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# Working on Tartale
+# Working on Tartame
 
 - Everything a customer reads is Spanish (Spain). Code, comments and commits are English.
 - Never invent facts on the site: no statistics, testimonials, prices, serving

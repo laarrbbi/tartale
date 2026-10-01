@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Nightly backup of the Tartale database, encrypted before it leaves the
+# Nightly backup of the Tartame database, encrypted before it leaves the
 # runner (.github/workflows/backup.yml). The repository is public, so the
 # artifact must be useless without BACKUP_PASSPHRASE.
 #

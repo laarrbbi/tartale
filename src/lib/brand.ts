@@ -1,5 +1,5 @@
 /**
- * Who runs Tartale: the name and the tagline, in one place.
+ * Who runs Tartame: the name and the tagline, in one place.
  *
  * The legal details the law asks for on the site (LSSI art. 10, RGPD art.
  * 13) and on every invoice — the company's name, NIF, address and a contact
@@ -8,7 +8,7 @@
  * them as pending.
  */
 export const BRAND = {
-  name: 'Tartale',
+  name: 'Tartame',
   tagline: 'Un email se ignora. Una tarta, no.',
   domain: 'tartale.vercel.app',
 } as const;

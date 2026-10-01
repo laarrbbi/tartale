@@ -209,7 +209,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
                 <p className="type-caption">No hay pedidos sin facturar.</p>
               ) : invoicingGaps(billing[3]).length > 0 ? (
                 <p className="type-caption">
-                  Para facturar faltan datos de Tartale en{' '}
+                  Para facturar faltan datos de Tartame en{' '}
                   <Link href="/admin/ajustes" className="font-medium text-brand underline underline-offset-2">
                     Ajustes
                   </Link>

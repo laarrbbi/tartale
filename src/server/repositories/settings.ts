@@ -9,7 +9,7 @@ export interface Settings {
   maxDaysAhead: number;
   /** Weekdays with no deliveries (0 = Sunday). */
   closedWeekdays: number[];
-  /** Tartale's own WhatsApp, for the "¿Algún cambio?" link. Empty: the link is hidden. */
+  /** Tartame's own WhatsApp, for the "¿Algún cambio?" link. Empty: the link is hidden. */
   whatsappNumber: string | null;
 }
 
@@ -57,7 +57,7 @@ export async function saveSettings(input: Settings): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Tartale's own details: the legal pages and every invoice print them
+// Tartame's own details: the legal pages and every invoice print them
 // ---------------------------------------------------------------------------
 
 export interface Business {

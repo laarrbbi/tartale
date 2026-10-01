@@ -67,7 +67,7 @@ export function SettingsForm({ settings, csrfToken }: { settings: SettingsFormDa
             )}
           </fieldset>
           <Field
-            label="WhatsApp de Tartale"
+            label="WhatsApp de Tartame"
             htmlFor="whatsappNumber"
             error={state.fieldErrors?.whatsappNumber}
             hint="Sale en la página de seguimiento («¿Algún cambio?») y en la web para equipos. Vacío: no se muestra."

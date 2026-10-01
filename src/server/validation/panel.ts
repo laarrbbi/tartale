@@ -156,7 +156,7 @@ export const settingsSchema = z
 export const deliveryPriceSchema = requiredEuros(200);
 
 // ---------------------------------------------------------------------------
-// Tartale's own details, for the legal pages and the invoices
+// Tartame's own details, for the legal pages and the invoices
 // ---------------------------------------------------------------------------
 
 const optionalTaxId = optionalText(30).transform((v, ctx) => {

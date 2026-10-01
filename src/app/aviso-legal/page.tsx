@@ -45,10 +45,10 @@ export default function LegalNoticePage() {
         imprimir su tarta, su tarjeta y su documento.
       </p>
       <p>
-        El vídeo de la portada está montado con clips de Kampus Production y de Mikhail Nilov publicados en Pexels con su
-        licencia libre, y con una foto de una tarta de la carta. Las personas que aparecen no tienen relación con{' '}
-        {BRAND.name}: el logo de la camiseta y la impresión de la tarta se añadieron en el montaje, y las impresiones que se
-        ven en las tartas de la web son ejemplos.
+        El vídeo de la portada está montado con clips de Kampus Production y de Ivan S publicados en Pexels con su licencia
+        libre, y con una foto de una tarta de la carta. Las personas que aparecen no tienen relación con {BRAND.name}: el
+        logo de la caja y la impresión de la tarta se añadieron en el montaje, y las impresiones que se ven en las tartas de
+        la web son ejemplos.
       </p>
 
       <h2>Ley aplicable</h2>

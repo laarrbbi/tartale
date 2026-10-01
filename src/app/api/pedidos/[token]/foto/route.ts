@@ -31,7 +31,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
       'content-type': photo.mime,
       'cache-control': 'private, max-age=300',
       'content-security-policy': "default-src 'none'",
-      'content-disposition': download ? `attachment; filename="tartale-pedido-${order.id}.${extension}"` : 'inline',
+      'content-disposition': download ? `attachment; filename="tartame-pedido-${order.id}.${extension}"` : 'inline',
     },
   });
 }

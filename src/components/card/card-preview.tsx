@@ -79,7 +79,7 @@ export function CardPreview({
               aria-hidden
               className="absolute bottom-[9cqw] left-[10cqw] grid h-[17cqw] w-[17cqw] rotate-[-14deg] place-items-center rounded-full border-[0.6cqw] border-[#b02e55]/70 font-display text-[3.6cqw] font-semibold italic text-[#b02e55]/75"
             >
-              Tartale
+              Tartame
             </span>
           </div>
         ) : null}

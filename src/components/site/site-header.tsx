@@ -8,7 +8,7 @@ export function SiteHeader({ cta = true }: { cta?: boolean }) {
   return (
     <header className="chrome sticky top-0 z-40 border-b border-line/60">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5">
-        <Link href="/" aria-label="Tartale, inicio" className="pressable">
+        <Link href="/" aria-label="Tartame, inicio" className="pressable">
           <Logo />
         </Link>
         <nav aria-label="Principal" className="flex items-center gap-1 sm:gap-3">

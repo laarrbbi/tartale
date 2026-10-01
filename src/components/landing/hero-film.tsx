@@ -3,11 +3,11 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * The film behind the hero: an executive on a bad call in his office; a
- * Tartale courier arrives at his door and hands him the box; he looks down at
+ * The film behind the hero: an executive on a bad call in his office; the
+ * courier smiles at his door and holds out a Tartame box; he looks down at
  * it, the cake says «Contáctame, tengo una propuesta» and a number; he picks
- * up his phone and dials it. Muted, looped, 15 seconds, about 700 KB (WebM)
- * or 1 MB (MP4).
+ * up his phone and dials it. Muted, looped, 14 seconds at 1920x1080: about
+ * 2 MB as WebM (what most browsers take) or 4 MB as MP4.
  *
  * It plays only while it is on screen, and not at all for people who asked
  * for less motion or to save data: they get a still of the cake instead.

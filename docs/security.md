@@ -1,6 +1,6 @@
 # Security
 
-What protects Tartale, and where each piece lives. `tests/security.test.ts`
+What protects Tartame, and where each piece lives. `tests/security.test.ts`
 checks most of it on every push.
 
 ## Headers and the browser

@@ -1,10 +1,10 @@
-# Tartale
+# Tartame
 
 **Un email se ignora. Una tarta, no.** Cold cake instead of cold email: a cake
 with a printed photo and a short line on top, delivered to someone's office —
 a prospect, an investor, a recruiter, a future partner, a client, or someone on
 the team. Spain first, starting in Alicante, with partner bakeries that bake
-and deliver. Tartale sells, takes the order and coordinates.
+and deliver. Tartame sells, takes the order and coordinates.
 
 Everything a customer reads is in Spanish (Spain).
 

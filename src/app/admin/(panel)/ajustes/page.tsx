@@ -87,7 +87,7 @@ export default async function SettingsPage() {
         : 'Hay alguna tabla abierta a la API pública de Supabase. Pulsa «Actualizar la base de datos».',
     },
     {
-      label: 'WhatsApp de Tartale',
+      label: 'WhatsApp de Tartame',
       ok: Boolean(settings.whatsappNumber),
       detail: settings.whatsappNumber ? settings.whatsappNumber : 'Sin número: el seguimiento no ofrece escribirnos por WhatsApp.',
     },

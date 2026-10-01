@@ -46,7 +46,7 @@ import { randomToken } from '@/server/security/hash';
  * - Company birthdays go on one F per company, for the orders the owner picks.
  *
  * Numbers are consecutive per series and year; an invoice is never changed or
- * deleted. Nothing is issued until Tartale's own details and the VAT rate are
+ * deleted. Nothing is issued until Tartame's own details and the VAT rate are
  * filled in (Ajustes): the rate is the owner's figure, never a guess.
  *
  * Invoice lines never name the person who receives the cake: invoices are
@@ -66,7 +66,7 @@ export function invoicingGaps(business: Business): string[] {
 }
 
 /**
- * Tartale's details for the legal pages and the footer. Before the database
+ * Tartame's details for the legal pages and the footer. Before the database
  * update that adds them is applied, or if the database cannot be reached,
  * the pages still render, with the details marked as pending.
  */
@@ -158,7 +158,7 @@ function customerFrom(invoice: Invoice): Draft['customer'] {
     : null;
 }
 
-/** Tartale's details now, or those on the invoice being corrected if they have since been emptied. */
+/** Tartame's details now, or those on the invoice being corrected if they have since been emptied. */
 function issuerFor(business: Business, corrected: Invoice): Draft['issuer'] {
   return invoicingGaps(business).length === 0
     ? issuerOf(business)

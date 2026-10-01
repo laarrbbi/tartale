@@ -20,7 +20,7 @@ export function Logo({ className, inverse = false }: { className?: string; inver
     <span className={cn('inline-flex items-center gap-2', className)}>
       <CakeMark />
       <span className={cn('font-display text-[1.35rem] font-semibold italic tracking-[-0.02em]', inverse ? 'text-ink-inverse' : 'text-ink')}>
-        Tartale
+        Tartame
       </span>
     </span>
   );

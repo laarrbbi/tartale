@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Tartale — starting data, applied once after schema.sql. Safe to re-run:
+-- Tartame — starting data, applied once after schema.sql. Safe to re-run:
 -- nothing is inserted twice and nothing already edited is overwritten.
 --
 -- The first partner bakery and its menu, as Levadura Madre prices it on its

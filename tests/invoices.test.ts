@@ -49,8 +49,8 @@ beforeEach(async () => {
 afterEach(() => stripe.restore());
 after(stopTestDb);
 
-const TARTALE: Business = {
-  legalName: 'Tartale Ejemplo, S.L.',
+const TARTAME: Business = {
+  legalName: 'Tartame Ejemplo, S.L.',
   taxId: 'B12345674',
   address: 'Calle Mayor 1',
   postalCode: '03002',
@@ -183,18 +183,18 @@ test('VAT on prices that include it: the base rounded, the VAT what is left, so 
 // Issuing
 // ---------------------------------------------------------------------------
 
-test('nothing is issued until Tartale’s details and the VAT rate are set; then the orders waiting get theirs', async () => {
+test('nothing is issued until Tartame’s details and the VAT rate are set; then the orders waiting get theirs', async () => {
   assert.deepEqual(invoicingGaps(EMPTY_BUSINESS), ['razón social', 'NIF', 'dirección', 'tipo de IVA']);
   const order = await aPaidOrder();
   assert.equal(order.paymentStatus, 'pagado', 'the payment itself is never held up');
   assert.equal(await countRows('invoices'), 0);
   assert.deepEqual(await issueOrderInvoice(order.id), { ok: false, reason: 'not_ready' });
 
-  await saveBusiness({ ...TARTALE, vatRateBp: null });
-  assert.deepEqual(invoicingGaps({ ...TARTALE, vatRateBp: null }), ['tipo de IVA']);
+  await saveBusiness({ ...TARTAME, vatRateBp: null });
+  assert.deepEqual(invoicingGaps({ ...TARTAME, vatRateBp: null }), ['tipo de IVA']);
   assert.equal((await issuePendingInvoices(null)).issued.length, 0);
 
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const run = await issuePendingInvoices(null);
   assert.equal(run.issued.length, 1);
   assert.equal(run.issued[0]!.number, `S${YEAR}-0001`);
@@ -202,14 +202,14 @@ test('nothing is issued until Tartale’s details and the VAT rate are set; then
 });
 
 test('a paid web order gets a factura simplificada at once: numbered, split into base and VAT, no one’s name on it', async () => {
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const order = await aPaidOrder();
   const invoice = (await currentInvoice(order.id))!;
   assert.equal(invoice.series, 'S');
   assert.equal(invoice.number, `S${YEAR}-0001`);
   assert.equal(invoice.issuedOn, madridToday());
   assert.equal(invoice.operationOn, null, 'paid today, issued today');
-  assert.equal(invoice.issuerName, 'Tartale Ejemplo, S.L.');
+  assert.equal(invoice.issuerName, 'Tartame Ejemplo, S.L.');
   assert.equal(invoice.issuerTaxId, 'B12345674');
   assert.equal(invoice.issuerAddress, 'Calle Mayor 1, 03002 Alicante');
   assert.equal(invoice.customerName, null);
@@ -238,7 +238,7 @@ test('a paid web order gets a factura simplificada at once: numbered, split into
 });
 
 test('a customer who asks for it in the order gets a factura completa with their company’s details', async () => {
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const order = await aPaidOrder({
     wantsInvoice: true,
     billingName: '  Startup  Ejemplo, S.L. ',
@@ -289,7 +289,7 @@ test('the order form: fiscal details only when asked for, and a NIF that is not 
 });
 
 test('a simplificada swapped for a factura completa from the order’s page: it says which one it replaces', async () => {
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const order = await aPaidOrder();
   const simplified = (await currentInvoice(order.id))!;
 
@@ -317,14 +317,14 @@ test('a simplificada swapped for a factura completa from the order’s page: it 
 test('asked for before invoicing is set up: the details are kept, and the invoice comes out as an F', async () => {
   const order = await aPaidOrder();
   assert.deepEqual(await requestCompanyInvoice(order.publicId, ACME), { ok: true, invoice: null });
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const run = await issuePendingInvoices(null);
   assert.equal(run.issued[0]?.series, 'F');
   assert.equal(run.issued[0]?.customerName, 'Acme Levante, S.L.');
 });
 
 test('refunds: a rectificativa for each amount that goes back, pointing at the invoice; never twice', async () => {
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const order = await aPaidOrder();
   const simplified = (await currentInvoice(order.id))!;
 
@@ -356,7 +356,7 @@ test('refunds: a rectificativa for each amount that goes back, pointing at the i
 });
 
 test('a swap after a refund: the simplificada is cancelled by an R and the F is for what is left', async () => {
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const order = await aPaidOrder();
   const simplified = (await currentInvoice(order.id))!;
   await refundOrder(order.id, 1000);
@@ -377,7 +377,7 @@ test('a swap after a refund: the simplificada is cancelled by an R and the F is 
 });
 
 test('all given back: nothing left to put on a new invoice, and nothing is issued', async () => {
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const owner = await anOwner();
   const order = await aPaidOrder();
   const simplified = (await currentInvoice(order.id))!;
@@ -390,7 +390,7 @@ test('all given back: nothing left to put on a new invoice, and nothing is issue
 });
 
 test('the owner corrects a customer’s details: an R cancels the old F, a new F has the right ones', async () => {
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const owner = await anOwner();
   const order = await aPaidOrder({
     wantsInvoice: true,
@@ -430,7 +430,7 @@ test('numbers: consecutive per series and year, and a failed invoice gives its n
     assert.equal(await takeInvoiceNumber(tx, 'F', 2032), 1, 'from 1 each year');
   });
 
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const orders = [await aPaidOrder(), await aPaidOrder(), await aPaidOrder()];
   const numbers = [];
   for (const o of orders) numbers.push((await currentInvoice(o.id))!.number);
@@ -438,7 +438,7 @@ test('numbers: consecutive per series and year, and a failed invoice gives its n
 });
 
 test('an invoice is final: the database refuses to change or delete it', async () => {
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const order = await aPaidOrder();
   const invoice = (await currentInvoice(order.id))!;
   await assert.rejects(sqlRun('update invoices set total_cents = 1, base_cents = 1, vat_cents = 0 where id = $1', [invoice.id]), /rectificativa/);
@@ -450,7 +450,7 @@ test('an invoice is final: the database refuses to change or delete it', async (
 });
 
 test('retention: the order’s people and fiscal details go at 90 days; the invoice keeps its copy; invoiced orders are never deleted', async () => {
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const order = await aPaidOrder({
     wantsInvoice: true,
     billingName: 'Startup, S.L.',
@@ -473,7 +473,7 @@ test('retention: the order’s people and fiscal details go at 90 days; the invo
 });
 
 test('a company’s birthdays on one factura: its fiscal details, the orders it picks, an R if one is cancelled', async () => {
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const owner = await anOwner();
   const companyId = await insertCompany({
     name: 'Acme',
@@ -498,7 +498,7 @@ test('a company’s birthdays on one factura: its fiscal details, the orders it 
   assert.equal(invoice.companyId, companyId);
   assert.equal(invoice.customerName, 'Acme Levante, S.L.');
   assert.equal(invoice.totalCents, 12400);
-  assert.equal(invoice.paymentNote, TARTALE.invoiceNote);
+  assert.equal(invoice.paymentNote, TARTAME.invoiceNote);
   assert.equal(invoice.operationOn, null, 'several days: each line has its own');
   const lines = await listInvoiceLines(invoice.id);
   assert.deepEqual(
@@ -561,7 +561,7 @@ test('periods for the VAT returns: quarters and whole years, the current quarter
 });
 
 test('the order’s page cannot ask for an invoice before paying, nor once the order is erased', async () => {
-  await saveBusiness(TARTALE);
+  await saveBusiness(TARTAME);
   const cakeId = (await listCakes()).find((c) => c.name === 'Lotus')!.id;
   const placed = await placeOrder(
     orderInputSchema.parse({

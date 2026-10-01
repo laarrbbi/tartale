@@ -1,6 +1,6 @@
 # Operations
 
-How Tartale runs, and what to do when something needs doing. Production is the
+How Tartame runs, and what to do when something needs doing. Production is the
 Vercel project `tartale` (region `cdg1`, Paris), deploying every push to the
 `claude/upbeat-planck-nhdxq0` branch, with its database on Supabase (Frankfurt,
 `eu-central-1`).
@@ -14,7 +14,7 @@ Vercel project `tartale` (region `cdg1`, Paris), deploying every push to the
 | `CRON_SECRET` | yes | Vercel sends it to the nightly jobs. Without it nothing is erased at 90 days and no birthday is ordered. |
 | `STRIPE_SECRET_KEY` | to sell | `sk_test_…` to try, `sk_live_…` (or a restricted `rk_live_…`) to sell. Without it the form says payments are off. |
 | `STRIPE_WEBHOOK_SECRET` | to sell | The signing secret of the webhook endpoint (below). |
-| `APP_ORIGIN` | no | Defaults to the production domain. Set it when a custom domain is added: `https://tartale.es`. |
+| `APP_ORIGIN` | no | Defaults to the production domain. Set it when a custom domain is added, e.g. `https://tartame.es`. |
 | `BOOTSTRAP_ADMIN_*` | once | First owner account, or recovery (below). Remove after use. |
 | `SETUP_SECRET` | once | Lets `POST /api/setup` create the tables in an empty database. Remove after use. |
 

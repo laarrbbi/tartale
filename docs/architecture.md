@@ -3,7 +3,7 @@
 ## The business in one paragraph
 
 Someone sends a cake with a printed photo and a short line to someone's office.
-Tartale sells it, takes the order and coordinates; a partner bakery bakes and
+Tartame sells it, takes the order and coordinates; a partner bakery bakes and
 delivers it (the first: Levadura Madre, Alicante). Each postcode belongs to one
 bakery's delivery zone, so every order knows who bakes it and what delivery
 costs. Company birthdays are the same order, created on its own a week ahead

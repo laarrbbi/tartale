@@ -2,7 +2,7 @@
   "name": "tartale",
   "version": "0.1.0",
   "private": true,
-  "description": "Tartale: cold cake instead of cold email. A cake with a printed photo and a line on top, delivered to an office in Spain.",
+  "description": "Tartame: cold cake instead of cold email. A cake with a printed photo and a line on top, delivered to an office in Spain.",
   "engines": {
     "node": ">=20.11"
   },

@@ -38,7 +38,7 @@ export function InvoiceSheet({ view, className }: { view: InvoiceView; className
       <header className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5">
         <div className="flex items-center gap-2.5">
           <CakeMark className="h-9 w-9" />
-          <span className="font-display text-[1.6rem] font-semibold italic tracking-[-0.02em]">Tartale</span>
+          <span className="font-display text-[1.6rem] font-semibold italic tracking-[-0.02em]">Tartame</span>
         </div>
         <div className="sm:text-right">
           <p className="font-display text-[1.45rem] font-semibold leading-tight">{label}</p>
