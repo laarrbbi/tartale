@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: tartale.vercel.app answers
+      - name: tartame.vercel.app answers
         run: |
           set -euo pipefail
-          base="https://tartale.vercel.app"
+          base="https://tartame.vercel.app"
           for path in / /enviar; do
             code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 --retry 2 --retry-delay 15 "$base$path")"
             if [ "$code" != 200 ]; then echo "::error::$base$path answered $code"; exit 1; fi

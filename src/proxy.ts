@@ -1,12 +1,30 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 /**
- * Per-request Content-Security-Policy.
+ * Per-request Content-Security-Policy, and the move to the new address.
  *
  * Runs before every page: mint a nonce, build the policy, hand the nonce to
  * the renderer (Next reads it back out of the request's CSP header and puts it
  * on every script it emits). Headers that never vary live in next.config.ts.
  */
+
+/**
+ * The site's old address. Its pages answer with a permanent redirect to the
+ * same path on the new one. API routes never pass through here, so a webhook
+ * or a cron job still pointed at the old address keeps working.
+ */
+const MOVED_HOSTS = new Map([['tartale.vercel.app', 'tartame.vercel.app']]);
+
+/** Where a page request now belongs, or null when it is already in the right place. */
+export function movedLocation(host: string | null, pathAndQuery: string): string | null {
+  const name = (host ?? '').trim().toLowerCase().replace(/:\d+$/, '');
+  const target = MOVED_HOSTS.get(name);
+  if (!target) return null;
+  // Concatenated, not resolved with new URL(): a path such as //evil.test
+  // would otherwise become a host of its own.
+  const path = pathAndQuery.startsWith('/') ? pathAndQuery : `/${pathAndQuery}`;
+  return `https://${target}${path}`;
+}
 
 function generateNonce(): string {
   const bytes = new Uint8Array(16);
@@ -60,6 +78,9 @@ export function buildCsp(nonce: string, isDev: boolean): string {
 }
 
 export function proxy(request: NextRequest): NextResponse {
+  const moved = movedLocation(request.headers.get('host'), request.nextUrl.pathname + request.nextUrl.search);
+  if (moved) return NextResponse.redirect(moved, 308);
+
   const isDev = process.env.NODE_ENV !== 'production';
   const nonce = generateNonce();
   const csp = buildCsp(nonce, isDev);

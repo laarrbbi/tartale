@@ -55,7 +55,7 @@ const TARTAME: Business = {
   address: 'Calle Mayor 1',
   postalCode: '03002',
   city: 'Alicante',
-  email: 'hola@tartale.test',
+  email: 'hola@tartame.test',
   registry: null,
   // A test figure; in the app it is whatever the owner types.
   vatRateBp: 1000,
@@ -112,7 +112,7 @@ async function currentInvoice(orderId: number): Promise<Invoice | null> {
 
 async function anOwner(): Promise<number> {
   return (await sqlOne<{ id: number }>(
-    `insert into admin_users (email, password_hash, display_name, role) values ('owner@tartale.test', 'x', 'Owner', 'owner') returning id`,
+    `insert into admin_users (email, password_hash, display_name, role) values ('owner@tartame.test', 'x', 'Owner', 'owner') returning id`,
   ))!.id;
 }
 

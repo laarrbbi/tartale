@@ -1,6 +1,6 @@
 -- Invoices.
 --
--- Tartale's own details move into the settings row, so the owner fills them
+-- Tartame's own details move into the settings row, so the owner fills them
 -- in from Ajustes (they print on every invoice and on the legal pages), with
 -- the VAT rate of the cakes. Customers who want an invoice in their
 -- company's name leave its fiscal details with the order (order_billing,

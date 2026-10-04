@@ -92,7 +92,7 @@ test('an order is priced from the database, stored unpaid, and sent to Stripe fo
   assert.equal(call.params.get('line_items[0][price_data][currency]'), 'eur');
   assert.equal(call.params.get('metadata[order_id]'), String(order?.id));
   assert.equal(call.params.get('customer_email'), 'pablo@startup.es');
-  assert.equal(call.params.get('success_url'), `https://tartale.test/pedido/${placed.publicId}?pago=ok&session_id={CHECKOUT_SESSION_ID}`);
+  assert.equal(call.params.get('success_url'), `https://tartame.test/pedido/${placed.publicId}?pago=ok&session_id={CHECKOUT_SESSION_ID}`);
   assert.ok(call.headers['idempotency-key']?.startsWith(`checkout-${order?.id}-`));
   // Nothing about marketing unless ticked.
   assert.equal(await countRows('marketing_contacts'), 0);

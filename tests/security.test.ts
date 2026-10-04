@@ -5,7 +5,7 @@ import test, { after, before, beforeEach } from 'node:test';
 
 import nextConfig from '../next.config';
 import { COOKIES, CSRF_FIELD } from '../src/lib/constants';
-import { buildCsp } from '../src/proxy';
+import { buildCsp, movedLocation } from '../src/proxy';
 import { isPublicId } from '../src/server/http/body';
 import { createUser, claimTotpStep, enableTotp, setPendingTotp } from '../src/server/repositories/users';
 import { hashToken, randomToken, safeEqual } from '../src/server/security/hash';
@@ -53,6 +53,16 @@ test('CSP: scripts only with this request’s nonce, no inline or eval, no frami
   assert.match(buildCsp('x', true), /'unsafe-eval'/, 'only the dev server gets eval, for its error overlay');
 });
 
+test('old address: pages move to the same path on the new one, and nowhere else', () => {
+  assert.equal(movedLocation('tartale.vercel.app', '/enviar?diseno=2'), 'https://tartame.vercel.app/enviar?diseno=2');
+  assert.equal(movedLocation('TARTALE.vercel.app:443', '/'), 'https://tartame.vercel.app/');
+  assert.equal(movedLocation('tartame.vercel.app', '/'), null);
+  assert.equal(movedLocation(null, '/'), null);
+  assert.equal(movedLocation('constructor', '/'), null, 'no prototype keys');
+  const sneaky = movedLocation('tartale.vercel.app', '//evil.test/x');
+  assert.equal(new URL(sneaky!).host, 'tartame.vercel.app', 'a path never becomes a host');
+});
+
 test('headers: HSTS with preload everywhere; tracking and invoice links are never indexed nor leaked as a referrer', async () => {
   const rules = (await nextConfig.headers!()) as { source: string; headers: { key: string; value: string }[] }[];
   const get = (source: string, key: string) => rules.find((r) => r.source === source)?.headers.find((h) => h.key === key)?.value;
@@ -76,13 +86,13 @@ test('cookies: every one is __Host- in production, so no subdomain can set or re
 // ---------------------------------------------------------------------------
 
 test('same origin: Origin must match exactly; Referer is the fallback; neither is a refusal', () => {
-  const app = 'https://tartale.test';
-  assert.equal(originMatches('https://tartale.test', null, app), true);
-  assert.equal(originMatches('https://evil.test', 'https://tartale.test/enviar', app), false, 'Origin wins over Referer');
-  assert.equal(originMatches('https://tartale.test.evil.test', null, app), false);
-  assert.equal(originMatches('http://tartale.test', null, app), false, 'plain http is another origin');
-  assert.equal(originMatches(null, 'https://tartale.test/admin', app), true);
-  assert.equal(originMatches(null, 'https://evil.test/?https://tartale.test', app), false);
+  const app = 'https://tartame.test';
+  assert.equal(originMatches('https://tartame.test', null, app), true);
+  assert.equal(originMatches('https://evil.test', 'https://tartame.test/enviar', app), false, 'Origin wins over Referer');
+  assert.equal(originMatches('https://tartame.test.evil.test', null, app), false);
+  assert.equal(originMatches('http://tartame.test', null, app), false, 'plain http is another origin');
+  assert.equal(originMatches(null, 'https://tartame.test/admin', app), true);
+  assert.equal(originMatches(null, 'https://evil.test/?https://tartame.test', app), false);
   assert.equal(originMatches(null, 'not a url', app), false);
   assert.equal(originMatches(null, null, app), false);
 });
@@ -136,7 +146,7 @@ test('two-step codes: RFC 6238 test vectors, a minute of drift, and each code wo
   assert.equal(matchTotp(secret, totpCode(secret, step - 3), now), null, 'an old code is refused');
   assert.equal(matchTotp(secret, 'abcdef', now), null);
 
-  const userId = await createUser({ email: 'dueña@tartale.test', passwordHash: 'x', displayName: 'Dueña', role: 'owner' });
+  const userId = await createUser({ email: 'dueña@tartame.test', passwordHash: 'x', displayName: 'Dueña', role: 'owner' });
   await setPendingTotp(userId, secret);
   await enableTotp(userId, step - 1);
   assert.equal(await claimTotpStep(userId, step), true);

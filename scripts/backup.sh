@@ -32,7 +32,7 @@ if [[ "$url" == *\?* ]]; then url="${url}&"; else url="${url}?"; fi
 # (BACKUP_SSL_PARAMS only exists to try the script against a local database.)
 url="${url}${BACKUP_SSL_PARAMS:-sslmode=verify-full&sslrootcert=${ca}}"
 
-dump="$OUT_DIR/tartale-$stamp.dump"
+dump="$OUT_DIR/tartame-$stamp.dump"
 "$PG_BIN/pg_dump" --format=custom --no-owner --no-privileges --schema=public --file="$dump" "$url"
 
 # A dump that is missing tables is not a backup: fail loudly.

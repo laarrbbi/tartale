@@ -72,9 +72,9 @@ export function sslFor(connectionString: string, noVerify = process.env.PGSSL_NO
 
 declare global {
   // eslint-disable-next-line no-var
-  var __tartalePool: Pool | undefined;
+  var __tartamePool: Pool | undefined;
   // eslint-disable-next-line no-var
-  var __tartaleTestDb: Db | undefined;
+  var __tartameTestDb: Db | undefined;
 }
 
 function poolAdapter(pool: Pool): Db {
@@ -110,12 +110,12 @@ function poolAdapter(pool: Pool): Db {
 
 /** The database handle; a singleton on globalThis so dev hot reload does not leak pools. */
 export function getDb(): Db {
-  if (globalThis.__tartaleTestDb) return globalThis.__tartaleTestDb;
+  if (globalThis.__tartameTestDb) return globalThis.__tartameTestDb;
 
-  if (!globalThis.__tartalePool) {
+  if (!globalThis.__tartamePool) {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) throw new Error('DATABASE_URL is not set. See .env.example.');
-    globalThis.__tartalePool = new Pool({
+    globalThis.__tartamePool = new Pool({
       connectionString,
       ssl: sslFor(connectionString),
       max: POOL_MAX,
@@ -125,12 +125,12 @@ export function getDb(): Db {
       connectionTimeoutMillis: 10_000,
     });
   }
-  return poolAdapter(globalThis.__tartalePool);
+  return poolAdapter(globalThis.__tartamePool);
 }
 
 /** Used by the test harness to run everything against PGlite. */
 export function setTestDb(db: Db | undefined): void {
-  globalThis.__tartaleTestDb = db;
+  globalThis.__tartameTestDb = db;
 }
 
 /** First row, or null. */

@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: tartale-backup-${{ github.run_id }}
+          name: tartame-backup-${{ github.run_id }}
           path: backups/*.gpg
           retention-days: 30
           if-no-files-found: error

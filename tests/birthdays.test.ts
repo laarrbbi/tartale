@@ -274,7 +274,7 @@ test('retention: the activity log keeps two years, and expired sessions and coun
 
 test('the nightly jobs answer only to Vercel Cron’s secret', async () => {
   const call = (handler: (r: Request) => Promise<Response>, auth?: string) =>
-    handler(new Request('https://tartale.test/api/cron/x', { headers: auth ? { authorization: auth } : {} }));
+    handler(new Request('https://tartame.test/api/cron/x', { headers: auth ? { authorization: auth } : {} }));
   for (const handler of [retentionCron, birthdaysCron]) {
     assert.equal((await call(handler)).status, 401);
     assert.equal((await call(handler, 'Bearer wrong')).status, 401);

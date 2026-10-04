@@ -12,7 +12,7 @@ import { orderInputSchema } from '../src/server/validation/schemas';
 import { installFakeStripe, type FakeStripe } from './fake-stripe';
 import { countRows, resetTestDb, sqlOne, sqlRun, startTestDb, stopTestDb } from './pg-harness';
 
-const SECRET = 'whsec_tartale_unit_tests';
+const SECRET = 'whsec_tartame_unit_tests';
 let stripe: FakeStripe;
 let ipSeq = 0;
 

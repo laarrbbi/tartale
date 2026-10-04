@@ -10,7 +10,7 @@
 export const BRAND = {
   name: 'Tartame',
   tagline: 'Un email se ignora. Una tarta, no.',
-  domain: 'tartale.vercel.app',
+  domain: 'tartame.vercel.app',
 } as const;
 
 /** What the legal pages print in place of a missing detail. */

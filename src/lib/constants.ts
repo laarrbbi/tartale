@@ -23,15 +23,15 @@ export const TTL = {
  * overwrite it. It needs HTTPS, so plain names are used on a local dev server.
  */
 export const COOKIES = {
-  session: '__Host-tartale_session',
-  csrf: '__Host-tartale_csrf',
-  twoFactor: '__Host-tartale_2fa',
+  session: '__Host-tartame_session',
+  csrf: '__Host-tartame_csrf',
+  twoFactor: '__Host-tartame_2fa',
 } as const;
 
 export const DEV_COOKIES = {
-  session: 'tartale_session',
-  csrf: 'tartale_csrf',
-  twoFactor: 'tartale_2fa',
+  session: 'tartame_session',
+  csrf: 'tartame_csrf',
+  twoFactor: 'tartame_2fa',
 } as const;
 
 /** Every admin form carries the CSRF token in this field. */
