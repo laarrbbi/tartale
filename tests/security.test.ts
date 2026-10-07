@@ -73,6 +73,8 @@ test('headers: HSTS with preload everywhere; tracking and invoice links are neve
   assert.match(get('/pedido/:path*', 'X-Robots-Tag') ?? '', /noindex/);
   assert.equal(get('/factura/:path*', 'Referrer-Policy'), 'no-referrer');
   assert.match(get('/factura/:path*', 'X-Robots-Tag') ?? '', /noindex/);
+  assert.match(get('/cuenta', 'X-Robots-Tag') ?? '', /noindex/);
+  assert.match(get('/entrar', 'X-Robots-Tag') ?? '', /noindex/);
   assert.match(get('/admin/:path*', 'X-Robots-Tag') ?? '', /noindex/);
   assert.equal(nextConfig.poweredByHeader, false);
 });
@@ -206,6 +208,9 @@ test('every panel action checks origin and CSRF token before anything else', () 
     if (action.name === 'loginAction') {
       // No session yet to bind a token to: the Origin check stands alone.
       assert.equal(firstAwait, 'isSameOrigin', `${action.file}: ${action.name}`);
+    } else if (path.basename(action.file) === 'account-actions.ts') {
+      // A customer's own account: their session, never the team's.
+      assert.equal(firstAwait, 'beginCustomerMutation', `${action.file}: ${action.name} starts with ${firstAwait}`);
     } else {
       assert.ok(firstAwait === 'beginMutation' || firstAwait === 'assertCsrf', `${action.file}: ${action.name} starts with ${firstAwait}`);
     }
@@ -233,12 +238,30 @@ test('every panel page asks for a session; the owner’s pages for the owner', (
   }
 });
 
-test('every panel form carries the CSRF token', () => {
-  const files = [...filesUnder('src/app/admin', /\.tsx$/), ...filesUnder('src/components/admin', /\.tsx$/)];
+test('every panel and account form carries the CSRF token', () => {
+  const files = [
+    ...filesUnder('src/app/admin', /\.tsx$/),
+    ...filesUnder('src/components/admin', /\.tsx$/),
+    ...filesUnder('src/app/cuenta', /\.tsx$/),
+    ...filesUnder('src/components/account', /\.tsx$/),
+  ];
   for (const file of files) {
     const source = read(file);
     if (!/<form[\s>]/.test(source) || file.endsWith('login-form.tsx')) continue;
     assert.ok(source.includes('CSRF_FIELD'), `${file} has a <form> without the token`);
   }
   assert.equal(CSRF_FIELD, 'csrfToken');
+  // The account's forms reach the token through AdminForm, like the panel's.
+  const accountForms = read('src/components/account/account-forms.tsx');
+  assert.ok(!/<form[\s>]/.test(accountForms) && accountForms.includes('<AdminForm'), 'account forms go through AdminForm');
+});
+
+test('the account page asks for a customer session, and a customer session opens nothing in the panel', () => {
+  assert.match(read('src/app/cuenta/page.tsx'), /await requireCustomer\(/);
+  for (const file of filesUnder('src/app/admin', /\.tsx?$/)) {
+    assert.doesNotMatch(read(file), /customer-session/, `${file} must not read a customer's session`);
+  }
+  assert.notEqual(COOKIES.customer, COOKIES.session);
+  assert.match(COOKIES.customer, /^__Host-/);
+  assert.match(COOKIES.signIn, /^__Host-/);
 });

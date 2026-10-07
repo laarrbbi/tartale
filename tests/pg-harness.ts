@@ -63,6 +63,10 @@ export async function stopTestDb(): Promise<void> {
 }
 
 const TABLES = [
+  'customer_billing',
+  'customer_sessions',
+  'customer_identities',
+  'customers',
   'invoice_lines',
   'invoices',
   'invoice_counters',

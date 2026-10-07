@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { getCustomerSession, hasCustomerCookie } from '@/server/auth/customer-session';
 import { BodyTooLargeError, readBodyText } from '@/server/http/body';
 import { getClientIp, isSameOrigin } from '@/server/security/request';
 import { placeOrder, type PlaceOrderFailure } from '@/server/services/order-service';
@@ -56,7 +57,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ message: formMessage ?? 'Revisa los datos marcados.', fields }, { status: 400, headers: noStore });
   }
 
-  const result = await placeOrder(parsed.data, await getClientIp());
+  // Signed in: the order goes in the account, and its details are kept for the next one.
+  const customer = (await hasCustomerCookie()) ? await getCustomerSession() : null;
+  const result = await placeOrder(parsed.data, await getClientIp(), { customerId: customer?.customer.id ?? null });
   if (!result.ok) {
     const reason = REASONS[result.reason] ?? REASONS.rejected;
     return NextResponse.json(

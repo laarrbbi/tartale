@@ -2,6 +2,9 @@ import 'server-only';
 
 import { redirect } from 'next/navigation';
 
+import type { ReturnPath } from '@/lib/accounts';
+
+import { getCustomerSession, type CustomerSession } from './customer-session';
 import { getSession, type ActiveSession } from './session';
 
 /**
@@ -22,5 +25,12 @@ export async function requireSession(options: { allowPasswordChange?: boolean } 
 export async function requireOwner(): Promise<ActiveSession> {
   const session = await requireSession();
   if (session.user.role !== 'owner') redirect('/admin');
+  return session;
+}
+
+/** Gate for a customer's account pages: off to sign in, and back here afterwards. */
+export async function requireCustomer(returnTo: ReturnPath): Promise<CustomerSession> {
+  const session = await getCustomerSession();
+  if (!session) redirect(`/entrar?volver=${encodeURIComponent(returnTo)}`);
   return session;
 }

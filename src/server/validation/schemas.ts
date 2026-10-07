@@ -111,6 +111,48 @@ const BILLING_FIELDS = {
   city: 'billingCity',
 } as const;
 
+/** Those fields as a form sends them, plus the box that asks for an invoice at all. */
+const BILLING_FORM_FIELDS = {
+  wantsInvoice: checkbox,
+  billingName: z.string().max(400).nullish(),
+  billingTaxId: z.string().max(400).nullish(),
+  billingAddress: z.string().max(400).nullish(),
+  billingPostalCode: z.string().max(400).nullish(),
+  billingCity: z.string().max(400).nullish(),
+};
+
+const INVALID = Symbol('invalid billing');
+
+/**
+ * The fiscal details when the box is ticked, null when it is not. Each
+ * problem is reported on the form field it came from.
+ */
+function pickBilling(
+  fields: {
+    wantsInvoice: boolean;
+    billingName?: string | null;
+    billingTaxId?: string | null;
+    billingAddress?: string | null;
+    billingPostalCode?: string | null;
+    billingCity?: string | null;
+  },
+  ctx: z.RefinementCtx,
+): BillingInput | null | typeof INVALID {
+  if (!fields.wantsInvoice) return null;
+  const billing = billingSchema.safeParse({
+    name: fields.billingName ?? '',
+    taxId: fields.billingTaxId ?? '',
+    address: fields.billingAddress ?? '',
+    postalCode: fields.billingPostalCode ?? '',
+    city: fields.billingCity ?? '',
+  });
+  if (billing.success) return billing.data;
+  for (const issue of billing.error.issues) {
+    ctx.addIssue({ code: 'custom', message: issue.message, path: [BILLING_FIELDS[issue.path[0] as keyof typeof BILLING_FIELDS]] });
+  }
+  return INVALID;
+}
+
 // ---------------------------------------------------------------------------
 // Public: an order from /enviar
 // ---------------------------------------------------------------------------
@@ -165,35 +207,34 @@ export const orderInputSchema = z.object({
   marketingOptIn: checkbox,
 
   // An invoice in a company's name: its details, only when asked for.
-  wantsInvoice: checkbox,
-  billingName: z.string().max(400).nullish(),
-  billingTaxId: z.string().max(400).nullish(),
-  billingAddress: z.string().max(400).nullish(),
-  billingPostalCode: z.string().max(400).nullish(),
-  billingCity: z.string().max(400).nullish(),
+  ...BILLING_FORM_FIELDS,
 
   // Bots: a field people never see, and the time it took to fill the form in.
   website: z.string().max(200).nullish(),
   elapsedMs: z.coerce.number().int().min(0).max(24 * 60 * 60 * 1000).optional(),
 })
   .transform(({ wantsInvoice, billingName, billingTaxId, billingAddress, billingPostalCode, billingCity, ...order }, ctx) => {
-    if (!wantsInvoice) return { ...order, billing: null };
-    const billing = billingSchema.safeParse({
-      name: billingName ?? '',
-      taxId: billingTaxId ?? '',
-      address: billingAddress ?? '',
-      postalCode: billingPostalCode ?? '',
-      city: billingCity ?? '',
-    });
-    if (!billing.success) {
-      for (const issue of billing.error.issues) {
-        ctx.addIssue({ code: 'custom', message: issue.message, path: [BILLING_FIELDS[issue.path[0] as keyof typeof BILLING_FIELDS]] });
-      }
-      return z.NEVER;
-    }
-    return { ...order, billing: billing.data };
+    const billing = pickBilling({ wantsInvoice, billingName, billingTaxId, billingAddress, billingPostalCode, billingCity }, ctx);
+    return billing === INVALID ? z.NEVER : { ...order, billing };
   });
 export type OrderInput = z.infer<typeof orderInputSchema>;
+
+// ---------------------------------------------------------------------------
+// Public: a customer's saved details, from /cuenta
+// ---------------------------------------------------------------------------
+
+export const accountDetailsSchema = z
+  .object({
+    name: cleanText(ORDER_LIMITS.name).pipe(z.string().min(1, 'Tu nombre')),
+    phone: nullishToEmpty.pipe(phoneSchema).transform((v) => (v === '' ? null : v)),
+    company: optionalText(ORDER_LIMITS.company),
+    ...BILLING_FORM_FIELDS,
+  })
+  .transform(({ wantsInvoice, billingName, billingTaxId, billingAddress, billingPostalCode, billingCity, ...details }, ctx) => {
+    const billing = pickBilling({ wantsInvoice, billingName, billingTaxId, billingAddress, billingPostalCode, billingCity }, ctx);
+    return billing === INVALID ? z.NEVER : { ...details, billing };
+  });
+export type AccountDetailsInput = z.infer<typeof accountDetailsSchema>;
 
 // ---------------------------------------------------------------------------
 // Panel

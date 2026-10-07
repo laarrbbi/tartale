@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { CSRF_FIELD, assertCsrf } from '@/server/auth/csrf';
+import { assertCustomerCsrf, type CustomerSession } from '@/server/auth/customer-session';
 import type { ActiveSession } from '@/server/auth/session';
 import { hashIp } from '@/server/security/hash';
 import { RULES, consume } from '@/server/security/rate-limit';
@@ -39,6 +40,29 @@ export async function beginMutation(formData: FormData, options: { requireRole?:
     return fail('Demasiados cambios seguidos. Ve un poco más despacio.');
   }
   return { session, ipHash: hashIp(await getClientIp()) };
+}
+
+export interface CustomerBegun {
+  session: CustomerSession;
+}
+
+/**
+ * The same preamble for a customer's own account: same origin and the
+ * session's token in the form, then a cap on how much a stolen cookie could
+ * change. A customer session never satisfies `beginMutation`, nor a panel
+ * session this.
+ */
+export async function beginCustomerMutation(formData: FormData): Promise<CustomerBegun | ActionState> {
+  let session: CustomerSession;
+  try {
+    session = await assertCustomerCsrf(formData.get(CSRF_FIELD)?.toString());
+  } catch {
+    return fail('Tu sesión ha caducado. Vuelve a entrar.');
+  }
+  if (!(await consume(RULES.customerWrite, String(session.customer.id))).allowed) {
+    return fail('Demasiados cambios seguidos. Espera un momento.');
+  }
+  return { session };
 }
 
 export function isActionState(value: unknown): value is ActionState {

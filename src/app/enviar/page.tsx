@@ -1,11 +1,15 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
-import { OrderFlow } from '@/components/order/order-flow';
+import { OrderFlow, type AccountPrefill } from '@/components/order/order-flow';
 import { SiteFooter } from '@/components/site/site-footer';
 import { SiteHeader } from '@/components/site/site-header';
 import { addDays, earliestDelivery, madridToday } from '@/lib/dates';
 import { whatsappLink } from '@/lib/whatsapp';
+import { getCustomerSession, hasCustomerCookie } from '@/server/auth/customer-session';
+import { configuredProviders } from '@/server/auth/oidc';
 import { stripeConfigured } from '@/server/payments/stripe';
+import { getCustomerBilling } from '@/server/repositories/customers';
 import { getSettings } from '@/server/repositories/settings';
 import { publicMenus } from '@/server/services/catalog-service';
 
@@ -28,6 +32,8 @@ export default async function SendPage({ searchParams }: { searchParams: Promise
   const latest = addDays(madridToday(), settings.maxDaysAhead);
   const payments = stripeConfigured();
   const contact = whatsappLink(settings.whatsappNumber, 'Hola, quería enviar una tarta');
+  const account = await accountPrefill();
+  const canSignIn = !account && configuredProviders().length > 0;
 
   return (
     <>
@@ -38,6 +44,15 @@ export default async function SendPage({ searchParams }: { searchParams: Promise
           <p className="type-lead mt-3 text-pretty">
             A quién va, cómo es y pagar. Tu foto y tu frase van impresas encima; tu tarjeta, en la caja.
           </p>
+          {canSignIn ? (
+            <p className="type-caption mt-3">
+              ¿Tienes cuenta?{' '}
+              <Link href="/entrar?volver=/enviar" className="font-medium text-brand underline underline-offset-2">
+                Entra
+              </Link>{' '}
+              y tus datos se rellenan solos.
+            </p>
+          ) : null}
         </header>
 
         {!menu || !settings.ordersEnabled ? (
@@ -63,6 +78,7 @@ export default async function SendPage({ searchParams }: { searchParams: Promise
               latest={latest}
               closedWeekdays={settings.closedWeekdays}
               initialPostcode={postcode}
+              account={account}
             />
           </>
         )}
@@ -70,4 +86,19 @@ export default async function SendPage({ searchParams }: { searchParams: Promise
       <SiteFooter />
     </>
   );
+}
+
+/** A signed-in customer's details, to start the form with. Nothing is asked of the database without a session cookie. */
+async function accountPrefill(): Promise<AccountPrefill | null> {
+  if (!(await hasCustomerCookie())) return null;
+  const session = await getCustomerSession();
+  if (!session) return null;
+  const { customer } = session;
+  return {
+    name: customer.name ?? '',
+    email: customer.email ?? '',
+    phone: customer.phone ?? '',
+    company: customer.company ?? '',
+    billing: await getCustomerBilling(customer.id),
+  };
 }

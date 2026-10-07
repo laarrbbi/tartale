@@ -3,13 +3,16 @@ import Link from 'next/link';
 import { BusinessForm, DeliveryPricesForm, SchemaUpdatesForm, SettingsForm } from '@/components/admin/settings-forms';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { PROVIDER_IDS, PROVIDER_LABELS } from '@/lib/accounts';
 import { RETENTION_DAYS } from '@/lib/constants';
 import { env } from '@/lib/env';
 import { formatVatRate } from '@/lib/invoices';
 import { formatEuros } from '@/lib/orders';
 import { requireOwner } from '@/server/auth/guard';
+import { callbackUrl, configuredProviders } from '@/server/auth/oidc';
 import { getDb } from '@/server/db/pg';
 import { listBakeries, listZones } from '@/server/repositories/catalog';
+import { countCustomers } from '@/server/repositories/customers';
 import { getSettings } from '@/server/repositories/settings';
 import { getTotp } from '@/server/repositories/users';
 import { businessDetails, invoicingGaps } from '@/server/services/invoice-service';
@@ -33,6 +36,9 @@ export default async function SettingsPage() {
     businessDetails(),
   ]);
   const invoicesReady = updates.find((u) => u.id === '20260928120000_invoices')?.applied ?? false;
+  const accountsReady = updates.find((u) => u.id === '20261004120000_customer_accounts')?.applied ?? false;
+  const signInOn = configuredProviders();
+  const customers = accountsReady ? await countCustomers() : 0;
   const legalComplete = Boolean(business.legalName && business.taxId && business.address && business.email);
   const invoiceGaps = invoicingGaps(business);
   const bakeryName = new Map(bakeries.map((b) => [b.id, b.name]));
@@ -138,6 +144,38 @@ export default async function SettingsPage() {
               Primero pulsa «Actualizar la base de datos» (abajo del todo): esta versión la necesita para guardar estos datos.
             </p>
           )}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Cuentas de clientes"
+          description="Opcional: se puede pedir sin cuenta. Con ellas, se entra con Google, Apple o Microsoft, sin contraseñas; cada uno se activa con sus claves en Vercel (docs/sign-in.md)."
+        />
+        <CardBody className="pt-2">
+          <ul className="flex flex-col divide-y divide-line">
+            {PROVIDER_IDS.map((provider) => {
+              const on = signInOn.includes(provider);
+              return (
+                <li key={provider} className="flex flex-col gap-1 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="type-body font-medium">{PROVIDER_LABELS[provider]}</p>
+                    <Badge tone={on ? 'positive' : 'neutral'}>{on ? 'Activo' : 'Sin claves'}</Badge>
+                  </div>
+                  <p className="type-caption text-pretty">
+                    Dirección de vuelta para registrar en {PROVIDER_LABELS[provider]}:{' '}
+                    <code className="break-all font-mono text-[0.8125rem] text-ink">{callbackUrl(provider)}</code>
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="type-caption mt-3 text-pretty">
+            {!accountsReady
+              ? 'Antes de activar ninguna, pulsa «Actualizar la base de datos» (abajo del todo). '
+              : `${customers === 1 ? 'Hay 1 cuenta' : `Hay ${customers} cuentas`}. `}
+            Las cuentas sin usar en {RETENTION_DAYS.customerAccounts / 365} años se borran solas cada noche, con sus datos guardados.
+          </p>
         </CardBody>
       </Card>
 

@@ -6,6 +6,7 @@ import { checkDeliveryDay, type DayProblem } from '@/lib/dates';
 import { ORDER_PHOTO, priceFor, signOffFor } from '@/lib/orders';
 import { getDb } from '@/server/db/pg';
 import { findBakery, findCake, zoneForPostcode } from '@/server/repositories/catalog';
+import { linkOrderToCustomer, saveCustomerBilling, saveCustomerDetails } from '@/server/repositories/customers';
 import { saveOrderBilling } from '@/server/repositories/invoices';
 import {
   deleteOrder,
@@ -114,7 +115,11 @@ export type PlaceOrderResult =
  * then Stripe's payment page is opened for it; if that fails the order is
  * removed again, so there is never an order nobody can pay for.
  */
-export async function placeOrder(input: OrderInput, ip: string | null): Promise<PlaceOrderResult> {
+export async function placeOrder(
+  input: OrderInput,
+  ip: string | null,
+  options: { customerId?: number | null } = {},
+): Promise<PlaceOrderResult> {
   const ipHash = hashIp(ip);
   if (!(await consume(RULES.order, ipHash ?? ANONYMOUS_BUCKET)).allowed) return { ok: false, reason: 'rate_limited' };
   if (input.website || input.elapsedMs === undefined || input.elapsedMs < MIN_HUMAN_MS) return { ok: false, reason: 'rejected' };
@@ -186,6 +191,17 @@ export async function placeOrder(input: OrderInput, ip: string | null): Promise<
     if (created && photo) await saveOrderPhoto(created.id, photo.mime, photo.bytes, tx);
     if (created && document) await saveOrderDocument(created.id, document, tx);
     if (created && input.billing) await saveOrderBilling(created.id, input.billing, tx);
+    // Only for a signed-in customer: a guest order never touches the accounts
+    // tables, so ordering works the same before their database update.
+    if (created && options.customerId) {
+      await linkOrderToCustomer(created.id, options.customerId, tx);
+      await saveCustomerDetails(
+        options.customerId,
+        { name: input.senderName, phone: input.senderPhone, company: input.senderCompany },
+        tx,
+      );
+      if (input.billing) await saveCustomerBilling(options.customerId, input.billing, tx);
+    }
     return created;
   });
   if (!order) return { ok: false, reason: 'rejected' };

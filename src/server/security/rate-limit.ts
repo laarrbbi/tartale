@@ -34,6 +34,10 @@ export interface RateLimitResult {
  *  - `login`      — password guessing per IP; the per-account lockout covers
  *                   many IPs converging on one account.
  *  - `adminWrite` — blast-radius cap on a stolen admin session.
+ *  - `signIn`     — leaving for, and coming back from, Google, Apple or
+ *                   Microsoft. Each sign-in counts twice; an office behind
+ *                   one address still has room for a dozen people at once.
+ *  - `customerWrite` — the same cap as `adminWrite`, on a customer's account.
  */
 export const RULES = {
   order: { name: 'order', limit: 8, windowSeconds: 60 * 10 },
@@ -42,6 +46,8 @@ export const RULES = {
   tracking: { name: 'tracking', limit: 240, windowSeconds: 60 * 10 },
   login: { name: 'login', limit: 10, windowSeconds: 60 * 15 },
   adminWrite: { name: 'admin-write', limit: 120, windowSeconds: 60 * 5 },
+  signIn: { name: 'sign-in', limit: 30, windowSeconds: 60 * 10 },
+  customerWrite: { name: 'customer-write', limit: 30, windowSeconds: 60 * 5 },
 } as const satisfies Record<string, RateLimitRule>;
 
 /**

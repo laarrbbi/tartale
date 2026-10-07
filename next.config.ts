@@ -69,6 +69,9 @@ const nextConfig: NextConfig = {
         headers: [...privateHeaders, { key: 'Referrer-Policy', value: 'no-referrer' }],
       },
       { source: '/admin/:path*', headers: privateHeaders },
+      // A customer's account, and the way in to it.
+      { source: '/cuenta', headers: privateHeaders },
+      { source: '/entrar', headers: privateHeaders },
       { source: '/api/:path*', headers: privateHeaders },
       {
         // Cake photos change perhaps once a season.

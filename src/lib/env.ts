@@ -32,6 +32,19 @@ const EnvSchema = z.object({
   STRIPE_SECRET_KEY: z.string().default(''),
   /** `whsec_…`, from the webhook endpoint in Stripe's dashboard. */
   STRIPE_WEBHOOK_SECRET: z.string().default(''),
+
+  // Customer sign-in (docs/sign-in.md). Each provider is offered once all of
+  // its variables are set; with none set, the site has no accounts at all.
+  GOOGLE_CLIENT_ID: z.string().default(''),
+  GOOGLE_CLIENT_SECRET: z.string().default(''),
+  /** The Services ID (com.example.web), not the App ID. */
+  APPLE_CLIENT_ID: z.string().default(''),
+  APPLE_TEAM_ID: z.string().default(''),
+  APPLE_KEY_ID: z.string().default(''),
+  /** The .p8 file's contents, PEM, line breaks included (or written as \n). */
+  APPLE_PRIVATE_KEY: z.string().default(''),
+  MICROSOFT_CLIENT_ID: z.string().default(''),
+  MICROSOFT_CLIENT_SECRET: z.string().default(''),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -89,6 +102,14 @@ function loadEnv(): Env {
     CRON_SECRET: read('CRON_SECRET'),
     STRIPE_SECRET_KEY: read('STRIPE_SECRET_KEY'),
     STRIPE_WEBHOOK_SECRET: read('STRIPE_WEBHOOK_SECRET'),
+    GOOGLE_CLIENT_ID: read('GOOGLE_CLIENT_ID'),
+    GOOGLE_CLIENT_SECRET: read('GOOGLE_CLIENT_SECRET'),
+    APPLE_CLIENT_ID: read('APPLE_CLIENT_ID'),
+    APPLE_TEAM_ID: read('APPLE_TEAM_ID'),
+    APPLE_KEY_ID: read('APPLE_KEY_ID'),
+    APPLE_PRIVATE_KEY: read('APPLE_PRIVATE_KEY')?.replace(/\\n/g, '\n'),
+    MICROSOFT_CLIENT_ID: read('MICROSOFT_CLIENT_ID'),
+    MICROSOFT_CLIENT_SECRET: read('MICROSOFT_CLIENT_SECRET'),
   };
 
   const parsed = EnvSchema.safeParse(raw);

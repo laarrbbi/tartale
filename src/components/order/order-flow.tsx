@@ -135,18 +135,29 @@ const fileButton =
   'pressable inline-flex h-11 w-fit cursor-pointer items-center rounded-pill bg-surface px-5 text-[0.9375rem] font-semibold text-ink ' +
   'ring-1 ring-line-strong has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand';
 
+/** What a signed-in customer has saved: the form starts with it, and they can change any of it. */
+export interface AccountPrefill {
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+  billing: { name: string; taxId: string; address: string; postalCode: string; city: string } | null;
+}
+
 export function OrderFlow({
   menu,
   earliest,
   latest,
   closedWeekdays,
   initialPostcode = '',
+  account = null,
 }: {
   menu: PublicMenu;
   earliest: string;
   latest: string;
   closedWeekdays: number[];
   initialPostcode?: string;
+  account?: AccountPrefill | null;
 }) {
   const firstCake = menu.cakes.find((c) => priceFor(c.prices, 'mediana') !== null) ?? menu.cakes[0]!;
   const [step, setStep] = useState(0);
@@ -171,18 +182,18 @@ export function OrderFlow({
     signOff: '',
     anonymous: false,
     document: null,
-    senderName: '',
-    senderPhone: '',
-    senderEmail: '',
-    senderCompany: '',
+    senderName: account?.name ?? '',
+    senderPhone: account?.phone ?? '',
+    senderEmail: account?.email ?? '',
+    senderCompany: account?.company ?? '',
     recipientConsent: false,
     marketingOptIn: false,
     wantsInvoice: false,
-    billingName: '',
-    billingTaxId: '',
-    billingAddress: '',
-    billingPostalCode: '',
-    billingCity: '',
+    billingName: account?.billing?.name ?? '',
+    billingTaxId: account?.billing?.taxId ?? '',
+    billingAddress: account?.billing?.address ?? '',
+    billingPostalCode: account?.billing?.postalCode ?? '',
+    billingCity: account?.billing?.city ?? '',
   });
   const [cardTouched, setCardTouched] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -731,6 +742,11 @@ export function OrderFlow({
 
               <fieldset className="flex flex-col gap-4">
                 <legend className="type-heading mb-2">Tus datos</legend>
+                {account ? (
+                  <p className="type-caption -mt-2 text-pretty">
+                    Los de tu cuenta. Si cambias algo aquí, se guarda en tu cuenta para el próximo pedido.
+                  </p>
+                ) : null}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Tu nombre" htmlFor="senderName" error={error('senderName')}>
                     <Input {...text('senderName')} required autoComplete="name" maxLength={ORDER_LIMITS.name} />
